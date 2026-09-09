@@ -154,10 +154,20 @@
       .then(function () { return adapter.init(manifest); })
       .then(function (result) {
         session = Object.assign({ connected: false, mode: 'normal' }, result || {});
-        setStatus(session.connected
-          ? (session.mode === 'normal' ? t('connected') : t('connectedMode', { mode: session.mode }))
-          : t('notConnected'), session.connected ? 'ok' : 'idle');
-        if (session.error) setStatus(session.error, 'error');
+
+        if (session.connected) {
+          setStatus(session.mode === 'normal'
+            ? t('connected')
+            : t('connectedMode', { mode: session.mode }), 'ok');
+        } else {
+          // A learner reads this line, so it says what it means for them rather
+          // than naming the API that was missing. The technical reason goes to
+          // the console for whoever is debugging the package.
+          setStatus(t('notConnected'), 'error');
+          if (session.error && window.console) {
+            console.warn('LMS not connected:', session.error);
+          }
+        }
 
         // cmi5 hands the AU a URL to send the learner back to; other standards
         // leave the LMS in charge of its own chrome, so there is nothing to show.

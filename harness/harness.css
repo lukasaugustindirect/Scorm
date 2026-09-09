@@ -1,25 +1,51 @@
+/* Harness styling: the same shadcn/ui tokens as the converter and the player,
+   so the dev tool does not read as a different product. See app/app.css for
+   why the library itself is not used. */
+
 :root {
   color-scheme: light dark;
-  --bg: #f6f7f9;
+
+  --background: #ffffff;
   --panel: #ffffff;
-  --ink: #16191d;
-  --ink-soft: #5a6472;
-  --line: #dde1e6;
-  --accent: #1f6feb;
-  --danger: #b3261e;
-  --ok: #1a7f37;
+  --foreground: #000000;
+  --primary: #000000;
+  --primary-foreground: #fafafa;
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
+  --accent: #f5f5f5;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #a1a1a1;
+  --danger: #e7000b;
+  --ok: #008236;
+  --stage: #e5e5e5;
+
+  --radius: 0.625rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+
+  /* Kept for the rules below that still name the old variables. */
+  --ink: var(--foreground);
+  --ink-soft: var(--muted-foreground);
+  --line: var(--border);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #14171b;
-    --panel: #1c2026;
-    --ink: #e8eaed;
-    --ink-soft: #9aa4b1;
-    --line: #2d333b;
-    --accent: #4c8dff;
-    --danger: #ff6b61;
+    --background: #0a0a0a;
+    --panel: #171717;
+    --foreground: #fafafa;
+    --primary: #e5e5e5;
+    --primary-foreground: #171717;
+    --muted: #262626;
+    --muted-foreground: #a1a1a1;
+    --accent: #404040;
+    --border: rgba(255, 255, 255, .10);
+    --input: rgba(255, 255, 255, .15);
+    --ring: #737373;
+    --danger: #ff6467;
     --ok: #4ac26b;
+    --stage: #0a0a0a;
   }
 }
 
@@ -31,9 +57,9 @@ body {
   display: flex;
   flex-direction: column;
   margin: 0;
-  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   color: var(--ink);
-  background: var(--bg);
+  background: var(--background);
 }
 
 code {
@@ -66,34 +92,40 @@ code {
 label { font-size: .75rem; font-weight: 500; color: var(--ink-soft); }
 
 select, input[type="number"] {
-  height: 2.125rem;
-  padding: .35rem .5rem;
+  height: 2.25rem;
+  padding: 0 .5rem;
   font: inherit;
-  font-size: .9rem;
-  color: var(--ink);
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: .3rem;
+  color: var(--foreground);
+  background: transparent;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
 }
 input[type="number"] { width: 5.5rem; }
 
 button {
-  padding: .375rem .75rem;
+  height: 2.25rem;
+  padding: 0 .75rem;
   font: inherit;
-  font-size: .9rem;
   font-weight: 500;
-  color: var(--ink);
+  color: var(--foreground);
   background: transparent;
-  border: 1px solid var(--line);
-  border-radius: .3rem;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
   cursor: pointer;
 }
-button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-button:disabled { opacity: .45; cursor: default; }
-button.primary { color: #fff; background: var(--accent); border-color: var(--accent); }
-button.primary:hover:not(:disabled) { filter: brightness(1.08); color: #fff; }
+button:hover:not(:disabled) { background: var(--accent); }
+button:disabled { opacity: .5; cursor: default; }
+button.primary {
+  color: var(--primary-foreground);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+button.primary:hover:not(:disabled) { opacity: .9; background: var(--primary); }
 
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 45%, transparent);
+}
 
 /* ---- split layout ---- */
 
@@ -109,7 +141,7 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); color: #fff; }
   min-width: 0;
   display: grid;
   place-items: center;
-  background: #2a2e35;
+  background: var(--stage);
 }
 #sco { width: 100%; height: 100%; border: 0; background: #fff; }
 #sco[hidden] { display: none; }
@@ -120,15 +152,15 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); color: #fff; }
   padding: 1rem;
   text-align: center;
   line-height: 1.8;
-  color: #c8cdd4;
+  color: var(--muted-foreground);
   font-size: .9rem;
 }
 .placeholder[hidden] { display: none; }
 .placeholder code {
   display: inline-block;
   padding: .2rem .4rem;
-  background: rgba(255, 255, 255, .1);
-  border-radius: .25rem;
+  background: var(--muted);
+  border-radius: var(--radius-sm);
 }
 
 /* ---- inspector ---- */
@@ -175,7 +207,7 @@ button.primary:hover:not(:disabled) { filter: brightness(1.08); color: #fff; }
   font-size: .8rem;
   line-height: 1.5;
   border: 1px solid var(--line);
-  border-radius: .3rem;
+  border-radius: var(--radius-md);
   color: var(--ink-soft);
 }
 .summary[data-state="ok"] {

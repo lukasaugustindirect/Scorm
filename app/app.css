@@ -1,28 +1,68 @@
+/* Converter styling.
+ *
+ * Follows the shadcn/ui design system, but written as plain CSS. The library
+ * itself cannot be used here: it needs React and Tailwind, and this app has to
+ * survive as one self-contained .html file that opens by double-click. What
+ * does transfer is the part that is not React at all -- the semantic token
+ * architecture and its values.
+ *
+ * Tokens are shadcn's own defaults, taken from apps/v4/app/globals.css in
+ * shadcn-ui/ui and converted from OKLCH to hex so nothing depends on OKLCH
+ * support in whatever browser this file is opened in. They land exactly on
+ * Tailwind's neutral scale, which is the palette shadcn ships.
+ *
+ * The naming convention is theirs and worth keeping: every colour is a
+ * `name` / `name-foreground` pair, base for surfaces and -foreground for what
+ * sits on top. Changing one token changes everything referencing it.
+ */
+
 :root {
   color-scheme: light dark;
 
-  --bg: #f6f7f9;
+  --background: #ffffff;
+  --foreground: #000000;
   --card: #ffffff;
-  --ink: #16191d;
-  --ink-soft: #5a6472;
-  --line: #dde1e6;
-  --accent: #1f6feb;
-  --accent-ink: #ffffff;
-  --danger: #b3261e;
-  --ok: #1a7f37;
-  --radius: .625rem;
+  --card-foreground: #000000;
+  --primary: #000000;
+  --primary-foreground: #fafafa;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #171717;
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
+  --accent: #f5f5f5;
+  --accent-foreground: #171717;
+  --destructive: #e7000b;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #a1a1a1;
+
+  /* Components derive from one value, as they do in shadcn. */
+  --radius: 0.625rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #14171b;
-    --card: #1c2026;
-    --ink: #e8eaed;
-    --ink-soft: #9aa4b1;
-    --line: #2d333b;
-    --accent: #4c8dff;
-    --danger: #ff6b61;
-    --ok: #4ac26b;
+    --background: #0a0a0a;
+    --foreground: #fafafa;
+    --card: #171717;
+    --card-foreground: #fafafa;
+    --primary: #e5e5e5;
+    --primary-foreground: #171717;
+    --secondary: #262626;
+    --secondary-foreground: #fafafa;
+    --muted: #262626;
+    --muted-foreground: #a1a1a1;
+    --accent: #404040;
+    --accent-foreground: #fafafa;
+    --destructive: #ff6467;
+    /* Translucent rather than solid, so borders read against any surface. */
+    --border: rgba(255, 255, 255, .10);
+    --input: rgba(255, 255, 255, .15);
+    --ring: #737373;
   }
 }
 
@@ -30,20 +70,23 @@
 
 body {
   margin: 0;
-  padding: 0 1rem 4rem;
-  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-  color: var(--ink);
-  background: var(--bg);
+  padding: 0 1rem 5rem;
+  /* 14px is shadcn's text-sm, the size nearly all of its interface uses. */
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+  color: var(--foreground);
+  background: var(--background);
+  -webkit-font-smoothing: antialiased;
 }
 
-a { color: var(--accent); }
+a { color: var(--foreground); text-underline-offset: 3px; }
 
 code {
-  padding: .1em .3em;
+  padding: .125rem .3rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: .875em;
-  background: color-mix(in srgb, var(--ink) 8%, transparent);
-  border-radius: .25rem;
+  font-size: .85em;
+  background: var(--muted);
+  border-radius: var(--radius-sm);
 }
 
 .sr-only {
@@ -56,30 +99,38 @@ code {
   border: 0;
 }
 
+/* Focus: a 3px translucent ring plus a border shift, which is what makes
+   shadcn's controls feel deliberate rather than browser-default. */
+:focus-visible {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 45%, transparent);
+}
+
 /* ---- masthead ---- */
 
 .masthead {
-  max-width: 52rem;
+  max-width: 44rem;
   margin: 0 auto;
-  padding: 2.5rem 0 1.5rem;
+  padding: 3rem 0 2rem;
 }
 .masthead__row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
 }
 .masthead h1 {
   margin: 0;
-  font-size: 1.75rem;
+  font-size: 1.5rem;
+  font-weight: 600;
   letter-spacing: -.02em;
 }
 .field--lang { flex: 0 0 auto; margin: 0; }
-.field--lang select { width: auto; padding: .3rem .5rem; font-size: .85rem; }
 .masthead__sub {
-  margin: .375rem 0 0;
-  max-width: 40rem;
-  color: var(--ink-soft);
+  margin: .5rem 0 0;
+  max-width: 34rem;
+  color: var(--muted-foreground);
 }
 
 /* ---- layout ---- */
@@ -88,58 +139,63 @@ code {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  max-width: 52rem;
+  max-width: 44rem;
   margin: 0 auto;
 }
 
+/* shadcn cards carry a border and no shadow; the border does the separating. */
 .card {
-  padding: 1.25rem;
+  padding: 1.5rem;
   background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
 }
 .card__title {
   display: flex;
   align-items: center;
   gap: .625rem;
-  margin: 0 0 1rem;
-  font-size: 1rem;
+  margin: 0 0 1.25rem;
+  font-size: .9375rem;
   font-weight: 600;
+  letter-spacing: -.01em;
 }
 .step {
   display: grid;
   place-items: center;
-  flex: 0 0 1.5rem;
-  width: 1.5rem; height: 1.5rem;
-  font-size: .8rem;
-  font-weight: 700;
-  color: var(--accent-ink);
-  background: var(--accent);
-  border-radius: 50%;
+  flex: 0 0 1.375rem;
+  width: 1.375rem; height: 1.375rem;
+  font-size: .75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--primary-foreground);
+  background: var(--primary);
+  border-radius: 999px;
 }
 
 /* ---- drop zone ---- */
 
 .drop {
-  padding: 2rem 1rem;
+  padding: 2.5rem 1rem;
   text-align: center;
-  border: 2px dashed var(--line);
-  border-radius: var(--radius);
+  background: var(--background);
+  border: 1px dashed var(--input);
+  border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: border-color .15s, background .15s;
+  transition: border-color .15s, background-color .15s;
 }
-.drop:hover, .drop:focus-visible, .drop[data-over="true"] {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
-  outline: none;
+.drop:hover, .drop[data-over="true"] {
+  border-color: var(--ring);
+  background: var(--muted);
 }
+.drop:focus-visible { background: var(--muted); }
 .drop__lead { margin: 0; font-weight: 500; }
-.drop__hint { margin: .25rem 0 0; font-size: .85rem; color: var(--ink-soft); }
+.drop__hint { margin: .375rem 0 0; color: var(--muted-foreground); }
 
 .filemeta {
-  margin: .75rem 0 0;
-  font-size: .9rem;
-  color: var(--ink-soft);
+  margin: 1rem 0 0;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
 }
 .filemeta[hidden] { display: none; }
 
@@ -147,143 +203,181 @@ code {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 1.25rem;
 }
 
-.field { display: flex; flex-direction: column; gap: .3rem; margin: 0; min-width: 0; }
+.field { display: flex; flex-direction: column; gap: .5rem; margin: 0; min-width: 0; }
 .field--wide { grid-column: 1 / -1; }
 .field[hidden] { display: none; }
 
-label { font-size: .875rem; font-weight: 500; }
-.opt { font-weight: 400; color: var(--ink-soft); }
+label { font-size: .875rem; font-weight: 500; line-height: 1.2; }
+.opt { font-weight: 400; color: var(--muted-foreground); }
 
 input[type="text"], input[type="number"], select {
   width: 100%;
-  padding: .5rem .625rem;
+  height: 2.25rem;
+  padding: 0 .75rem;
   font: inherit;
-  font-size: .95rem;
-  color: var(--ink);
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: .375rem;
+  color: var(--foreground);
+  background: transparent;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
+  transition: border-color .15s, box-shadow .15s;
 }
-input[type="range"] { width: 100%; accent-color: var(--accent); }
+select { padding-right: .5rem; cursor: pointer; }
+::placeholder { color: var(--muted-foreground); }
 
-input:focus-visible, select:focus-visible, button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+input[type="range"] {
+  width: 100%;
+  height: 2.25rem;
+  accent-color: var(--primary);
 }
 
-.hint { font-size: .8rem; line-height: 1.5; color: var(--ink-soft); }
+.hint {
+  font-size: .8125rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+output { font-variant-numeric: tabular-nums; }
 
 /* ---- checkbox lists ---- */
 
-.checks { margin: 0; padding: 0; list-style: none; display: grid; gap: .625rem; }
-.checks--tight { margin-top: 1rem; }
+.checks { margin: 0; padding: 0; list-style: none; display: grid; gap: 1rem; }
+.checks--tight { margin-top: 1.25rem; gap: .875rem; }
 .checks label {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: .125rem .625rem;
+  gap: .25rem .625rem;
   align-items: start;
   font-weight: 400;
+  line-height: 1.5;
   cursor: pointer;
 }
-.checks input { grid-row: span 2; margin: .3rem 0 0; accent-color: var(--accent); }
-.checks__name { font-weight: 500; font-size: .95rem; }
-.checks__note { font-size: .8rem; line-height: 1.5; color: var(--ink-soft); }
+.checks input {
+  grid-row: span 2;
+  width: 1rem; height: 1rem;
+  margin: .1875rem 0 0;
+  accent-color: var(--primary);
+}
+.checks__name { font-weight: 500; }
+.checks__note { font-size: .8125rem; color: var(--muted-foreground); }
 
-.advanced { margin-top: 1rem; }
+.advanced { margin-top: 1.25rem; }
 .advanced[hidden] { display: none; }
 .advanced > summary {
-  font-size: .8rem;
-  font-weight: 500;
-  color: var(--ink-soft);
-  cursor: pointer;
   width: fit-content;
+  padding: .25rem .5rem .25rem 0;
+  font-size: .8125rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
 }
-.advanced > summary:hover { color: var(--accent); }
-.advanced > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.advanced .checks--tight { margin-top: .625rem; }
+.advanced > summary:hover { color: var(--foreground); }
+.advanced .checks--tight { margin-top: .875rem; }
 
-/* ---- build ---- */
+/* ---- buttons ---- */
 
-.card--action { display: grid; gap: 1rem; }
+.card--action { display: grid; gap: 1.25rem; }
 
 .build, .secondary, .dl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.25rem;
+  padding: 0 1rem;
   font: inherit;
   font-weight: 500;
-  border-radius: .375rem;
-  cursor: pointer;
+  white-space: nowrap;
   border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color .15s, border-color .15s, color .15s, opacity .15s;
 }
+
+/* Primary is near-black rather than a brand colour: shadcn's signature, and it
+   keeps the one real action on the page unmistakable. */
 .build {
-  padding: .7rem 1.25rem;
-  font-size: 1rem;
-  color: var(--accent-ink);
-  background: var(--accent);
   justify-self: start;
+  color: var(--primary-foreground);
+  background: var(--primary);
 }
-.build:disabled { opacity: .45; cursor: default; }
-.build:hover:not(:disabled) { filter: brightness(1.08); }
+.build:hover:not(:disabled) { opacity: .9; }
+.build:disabled { opacity: .5; cursor: default; }
 
 .secondary, .dl {
-  padding: .45rem .875rem;
-  font-size: .9rem;
-  color: var(--ink);
-  background: transparent;
-  border-color: var(--line);
+  color: var(--foreground);
+  background: var(--background);
+  border-color: var(--input);
 }
 .secondary { justify-self: start; }
-.secondary:hover, .dl:hover { border-color: var(--accent); color: var(--accent); }
+.secondary:hover:not(:disabled), .dl:hover:not(:disabled) { background: var(--accent); }
+.secondary:disabled, .dl:disabled { opacity: .5; cursor: default; }
+
+.dl { height: 2rem; padding: 0 .75rem; font-size: .8125rem; }
+
+/* ---- progress and results ---- */
 
 .progress[hidden], .results[hidden], .error[hidden] { display: none; }
 
 .progress__bar {
   height: .5rem;
-  background: var(--line);
+  background: var(--muted);
   border-radius: 999px;
   overflow: hidden;
 }
 .progress__fill {
   width: 0;
   height: 100%;
-  background: var(--accent);
+  background: var(--primary);
   border-radius: inherit;
   transition: width .2s ease;
 }
-.progress__label { margin: .5rem 0 0; font-size: .875rem; color: var(--ink-soft); }
+.progress__label {
+  margin: .75rem 0 0;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
 
 .error {
   margin: 0;
   padding: .75rem .875rem;
-  font-size: .9rem;
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
-  border-radius: .375rem;
+  color: var(--destructive);
+  background: color-mix(in srgb, var(--destructive) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--destructive) 30%, transparent);
+  border-radius: var(--radius-md);
 }
 
-.results__title { margin: 0 0 .625rem; font-size: .9rem; font-weight: 600; }
-.results__list { margin: 0 0 1rem; padding: 0; list-style: none; display: grid; gap: .5rem; }
+.results__title {
+  margin: 0 0 .75rem;
+  font-size: .875rem;
+  font-weight: 600;
+}
+.results__list { margin: 0 0 1.25rem; padding: 0; list-style: none; display: grid; gap: .5rem; }
 .results__list li {
   display: flex;
   align-items: center;
   gap: .75rem;
-  padding: .625rem .75rem;
-  border: 1px solid var(--line);
-  border-radius: .375rem;
+  padding: .625rem .75rem .625rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
-.results__name { font-weight: 500; font-size: .95rem; }
-.results__size { margin-left: auto; font-size: .8rem; color: var(--ink-soft); }
+.results__name { font-weight: 500; }
+.results__size {
+  margin-left: auto;
+  color: var(--muted-foreground);
+  font-size: .8125rem;
+  font-variant-numeric: tabular-nums;
+}
 
 /* ---- preview ---- */
 
 .preview {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
-  gap: .625rem;
-  max-height: 24rem;
+  grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
+  gap: .75rem;
+  max-height: 22rem;
   overflow-y: auto;
 }
 .preview figure { margin: 0; }
@@ -291,22 +385,24 @@ input:focus-visible, select:focus-visible, button:focus-visible {
   width: 100%;
   height: auto;
   background: #fff;
-  border: 1px solid var(--line);
-  border-radius: .25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
 }
 .preview figcaption {
+  margin-top: .25rem;
   font-size: .75rem;
   text-align: center;
-  color: var(--ink-soft);
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
 }
 
 .footer {
-  max-width: 52rem;
-  margin: 2rem auto 0;
-  font-size: .825rem;
-  color: var(--ink-soft);
+  max-width: 44rem;
+  margin: 2.5rem auto 0;
+  font-size: .8125rem;
+  color: var(--muted-foreground);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .progress__fill, .drop { transition: none; }
+  *, *::before, *::after { transition: none !important; }
 }

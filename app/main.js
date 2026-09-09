@@ -55,6 +55,9 @@ let strings = uiStrings('en');
 let built = [];
 let objectUrls = [];
 let busy = false;
+// Set once the author picks a course language by hand, after which the
+// interface language stops dragging it along.
+let courseLanguagePinned = false;
 
 const t = (key, values) => fill(strings[key], values);
 
@@ -94,12 +97,19 @@ function initLanguages() {
     : (LANGUAGES.find((l) => navigator.language.toLowerCase().startsWith(l.code))?.code || 'en');
 
   ui.uiLanguage.value = initial;
-  // The course defaults to the same language as the interface, which is right
-  // far more often than not, and stays independently changeable.
+  // The course defaults to the language of the interface, which is right far
+  // more often than not.
   ui.language.value = initial;
+
+  // ...and keeps following it until the author says otherwise. Without this,
+  // switching the interface to Czech left the course language on English and
+  // silently produced a course with English buttons -- a trap, because nothing
+  // on screen contradicted the choice that had just been made.
+  ui.language.addEventListener('change', () => { courseLanguagePinned = true; });
 
   ui.uiLanguage.addEventListener('change', () => {
     rememberLanguage(ui.uiLanguage.value);
+    if (!courseLanguagePinned) ui.language.value = ui.uiLanguage.value;
     applyLanguage();
   });
   applyLanguage();
