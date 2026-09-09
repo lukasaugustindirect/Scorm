@@ -1,0 +1,2 @@
+pdf.js (pdfjs-dist) 6.3.289 - Apache-2.0 - https://github.com/mozilla/pdf.js
+JSZip 3.10.2 - MIT/GPLv3 - https://github.com/Stuk/jszip

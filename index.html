@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDF to SCORM Converter</title>
+<link rel="stylesheet" href="app/app.css">
+</head>
+<body>
+
+<header class="masthead">
+  <h1>PDF to SCORM</h1>
+  <p class="masthead__sub">
+    Turn a PDF into a SCORM 1.2, SCORM 2004, xAPI or cmi5 course.
+    Everything runs in this browser tab &mdash; the file is never uploaded.
+  </p>
+</header>
+
+<main class="layout">
+
+  <!-- ---------- 1. the PDF ---------- -->
+  <section class="card" aria-labelledby="h-source">
+    <h2 class="card__title" id="h-source"><span class="step">1</span> Choose a PDF</h2>
+
+    <div class="drop" id="drop" tabindex="0" role="button"
+         aria-describedby="drop-hint">
+      <p class="drop__lead">Drop a PDF here, or click to browse</p>
+      <p class="drop__hint" id="drop-hint">Nothing leaves your computer.</p>
+      <input type="file" id="file" accept="application/pdf,.pdf" hidden>
+    </div>
+
+    <p class="filemeta" id="filemeta" hidden></p>
+  </section>
+
+  <!-- ---------- 2. course details ---------- -->
+  <section class="card" aria-labelledby="h-course">
+    <h2 class="card__title" id="h-course"><span class="step">2</span> Course details</h2>
+
+    <div class="grid">
+      <p class="field field--wide">
+        <label for="title">Course title</label>
+        <input type="text" id="title" placeholder="Taken from the PDF if left empty">
+      </p>
+
+      <p class="field field--wide">
+        <label for="description">Description <span class="opt">optional</span></label>
+        <input type="text" id="description" placeholder="Shown by some LMSs in the catalogue">
+      </p>
+
+      <p class="field">
+        <label for="identifier">Identifier</label>
+        <input type="text" id="identifier" placeholder="derived from the title">
+        <span class="hint">Used as the manifest identifier and the zip filename.</span>
+      </p>
+
+      <p class="field">
+        <label for="language">Language</label>
+        <input type="text" id="language" value="en" size="4">
+        <span class="hint">Two-letter code, or a tag like <code>cs-CZ</code>.</span>
+      </p>
+
+      <p class="field field--wide">
+        <label for="activity-iri">Activity IRI <span class="opt">xAPI and cmi5 only</span></label>
+        <input type="text" id="activity-iri"
+               placeholder="https://example.com/courses/my-course">
+        <span class="hint">
+          Must be globally unique and stable &mdash; it is how an LRS identifies this course
+          forever. Left empty, a <code>urn:</code> is derived from the identifier, which works
+          but is worth replacing with a real domain you control.
+        </span>
+      </p>
+    </div>
+  </section>
+
+  <!-- ---------- 3. standards ---------- -->
+  <section class="card" aria-labelledby="h-standards">
+    <h2 class="card__title" id="h-standards"><span class="step">3</span> Standards to build</h2>
+
+    <ul class="checks" id="standards">
+      <li>
+        <label>
+          <input type="checkbox" value="scorm12" checked>
+          <span class="checks__name">SCORM 1.2</span>
+          <span class="checks__note">Widest LMS support. Start here if unsure.</span>
+        </label>
+      </li>
+      <li>
+        <label>
+          <input type="checkbox" value="scorm2004" checked>
+          <span class="checks__name">SCORM 2004 4th Edition</span>
+          <span class="checks__note">Separate completion and pass/fail, plus partial progress.</span>
+        </label>
+      </li>
+      <li>
+        <label>
+          <input type="checkbox" value="xapi" checked>
+          <span class="checks__name">xAPI</span>
+          <span class="checks__note">Needs an LRS. Can record which pages were read.</span>
+        </label>
+      </li>
+      <li>
+        <label>
+          <input type="checkbox" value="cmi5" checked>
+          <span class="checks__name">cmi5</span>
+          <span class="checks__note">xAPI with a defined launch and course structure.</span>
+        </label>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ---------- 4. tracking ---------- -->
+  <section class="card" aria-labelledby="h-tracking">
+    <h2 class="card__title" id="h-tracking"><span class="step">4</span> Completion and tracking</h2>
+
+    <div class="grid">
+      <p class="field">
+        <label for="completion-rule">Mark complete when</label>
+        <select id="completion-rule">
+          <option value="all" selected>every page has been viewed</option>
+          <option value="percent">a share of pages has been viewed</option>
+          <option value="launch">the course is opened</option>
+        </select>
+      </p>
+
+      <p class="field" id="threshold-field" hidden>
+        <label for="completion-threshold">Pages viewed (%)</label>
+        <input type="number" id="completion-threshold" min="1" max="100" value="80">
+      </p>
+
+      <p class="field">
+        <label for="mastery">Mastery score (%) <span class="opt">optional</span></label>
+        <input type="number" id="mastery" min="0" max="100" placeholder="none">
+        <span class="hint">
+          Set this only if the LMS needs a pass/fail rather than just complete.
+          A page-turner has nothing to grade, so the score is the share of pages read.
+        </span>
+      </p>
+
+      <p class="field" id="moveon-field">
+        <label for="moveon">cmi5 <code>moveOn</code></label>
+        <select id="moveon">
+          <option value="Completed" selected>Completed</option>
+          <option value="Passed">Passed</option>
+          <option value="CompletedAndPassed">CompletedAndPassed</option>
+          <option value="CompletedOrPassed">CompletedOrPassed</option>
+          <option value="NotApplicable">NotApplicable</option>
+        </select>
+      </p>
+    </div>
+
+    <ul class="checks checks--tight">
+      <li id="per-page-row">
+        <label>
+          <input type="checkbox" id="per-page" checked>
+          <span class="checks__name">Record a statement per page (xAPI)</span>
+          <span class="checks__note">One <code>experienced</code> statement the first time each page is opened.</span>
+        </label>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ---------- 5. images ---------- -->
+  <section class="card" aria-labelledby="h-images">
+    <h2 class="card__title" id="h-images"><span class="step">5</span> Page images</h2>
+
+    <div class="grid">
+      <p class="field">
+        <label for="dpi">Resolution (DPI)</label>
+        <select id="dpi">
+          <option value="96">96 &mdash; smallest</option>
+          <option value="150" selected>150 &mdash; balanced</option>
+          <option value="200">200 &mdash; sharp</option>
+          <option value="300">300 &mdash; print quality, large</option>
+        </select>
+      </p>
+
+      <p class="field">
+        <label for="format">Image format</label>
+        <select id="format">
+          <option value="image/webp" selected>WebP &mdash; smallest</option>
+          <option value="image/jpeg">JPEG &mdash; most compatible</option>
+          <option value="image/png">PNG &mdash; lossless, largest</option>
+        </select>
+      </p>
+
+      <p class="field">
+        <label for="quality">Quality</label>
+        <input type="range" id="quality" min="50" max="100" value="85" step="5">
+        <span class="hint"><output id="quality-out">85</output>% &mdash; ignored for PNG.</span>
+      </p>
+    </div>
+
+    <ul class="checks checks--tight">
+      <li>
+        <label>
+          <input type="checkbox" id="extract-text" checked>
+          <span class="checks__name">Include page text for screen readers</span>
+          <span class="checks__note">
+            Each page's text is placed in a visually hidden caption beside its image, so the
+            course is not an unreadable wall of pictures. It is not a selectable text layer over
+            the page.
+          </span>
+        </label>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ---------- build ---------- -->
+  <section class="card card--action" aria-labelledby="h-build">
+    <h2 class="card__title" id="h-build"><span class="step">6</span> Build</h2>
+
+    <button class="build" id="build" disabled>Build packages</button>
+
+    <div class="progress" id="progress" hidden>
+      <div class="progress__bar"><div class="progress__fill" id="progress-fill"></div></div>
+      <p class="progress__label" id="progress-label" role="status"></p>
+    </div>
+
+    <p class="error" id="error" hidden role="alert"></p>
+
+    <div class="results" id="results" hidden>
+      <h3 class="results__title">Packages</h3>
+      <ul class="results__list" id="results-list"></ul>
+      <button class="secondary" id="download-all" hidden>Download all as one zip</button>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="h-preview" id="preview-card" hidden>
+    <h2 class="card__title" id="h-preview">Rendered pages</h2>
+    <div class="preview" id="preview"></div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <p>
+    Built with <a href="https://mozilla.github.io/pdf.js/">pdf.js</a> and
+    <a href="https://stuk.github.io/jszip/">JSZip</a>, both bundled locally so the
+    converter works offline.
+  </p>
+</footer>
+
+<!-- JSZip ships as UMD and sets window.JSZip; loaded before the module that uses it. -->
+<script src="vendor/jszip.min.js"></script>
+<script type="module" src="app/main.js"></script>
+</body>
+</html>
