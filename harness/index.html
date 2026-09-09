@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fake LMS harness</title>
+<link rel="stylesheet" href="harness.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="top__title">
+    <h1>Fake LMS</h1>
+    <p>Runs a built package and shows exactly what it reports. Nothing here is a real LMS.</p>
+  </div>
+
+  <div class="top__controls">
+    <p class="field">
+      <label for="package">Package</label>
+      <select id="package"><option value="">loading…</option></select>
+    </p>
+    <p class="field">
+      <label for="standard">Emulate</label>
+      <select id="standard">
+        <option value="auto" selected>auto-detect</option>
+        <option value="scorm12">SCORM 1.2</option>
+        <option value="scorm2004">SCORM 2004</option>
+        <option value="xapi">xAPI</option>
+        <option value="cmi5">cmi5</option>
+      </select>
+    </p>
+    <p class="field" id="mode-field">
+      <label for="mode">Launch mode</label>
+      <select id="mode">
+        <option value="Normal" selected>Normal</option>
+        <option value="Browse">Browse</option>
+        <option value="Review">Review</option>
+      </select>
+    </p>
+    <p class="field">
+      <label for="mastery">Mastery</label>
+      <input type="number" id="mastery" min="0" max="1" step="0.05" value="0.8">
+    </p>
+    <p class="field field--actions">
+      <button id="launch" class="primary">Launch</button>
+      <button id="relaunch" title="Launch again keeping everything the LMS has stored">
+        Relaunch
+      </button>
+      <button id="reset" title="Forget all stored data and start a fresh attempt">Reset</button>
+    </p>
+  </div>
+</header>
+
+<main class="split">
+
+  <section class="stage-pane">
+    <p class="placeholder" id="placeholder">
+      Unpack a package first:<br>
+      <code>node tools/unpack.mjs test/output/your-course-scorm12.zip</code><br>
+      then pick it above and press Launch.
+    </p>
+    <iframe id="sco" title="Course under test" hidden></iframe>
+  </section>
+
+  <aside class="inspector">
+    <nav class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-tab="model" id="tab-model">Data model</button>
+      <button role="tab" aria-selected="false" data-tab="calls" id="tab-calls">Calls</button>
+      <button role="tab" aria-selected="false" data-tab="notes" id="tab-notes">What to look for</button>
+    </nav>
+
+    <div class="tab-panel" id="panel-model" role="tabpanel" aria-labelledby="tab-model">
+      <p class="summary" id="summary">Nothing launched yet.</p>
+      <table class="model">
+        <thead><tr><th>Element</th><th>Value</th></tr></thead>
+        <tbody id="model-body"></tbody>
+      </table>
+    </div>
+
+    <div class="tab-panel" id="panel-calls" role="tabpanel" aria-labelledby="tab-calls" hidden>
+      <ol class="calls" id="calls"></ol>
+    </div>
+
+    <div class="tab-panel" id="panel-notes" role="tabpanel" aria-labelledby="tab-notes" hidden>
+      <h2>SCORM 1.2</h2>
+      <ul>
+        <li><code>LMSInitialize</code> once on open, <code>LMSFinish</code> once on close.</li>
+        <li><code>cmi.core.lesson_status</code> should leave <em>not attempted</em> immediately,
+            then reach <em>completed</em> (or <em>passed</em> with a mastery score).</li>
+        <li><code>cmi.core.session_time</code> must look like <code>00:01:23</code>, not a number
+            of seconds.</li>
+        <li><code>cmi.suspend_data</code> must stay under 4096 characters.</li>
+        <li><code>cmi.core.exit</code> should be <code>suspend</code> if you close the course
+            part-way, and empty once it is complete.</li>
+      </ul>
+
+      <h2>SCORM 2004</h2>
+      <ul>
+        <li>Calls lose the <code>LMS</code> prefix: <code>Initialize</code>,
+            <code>Terminate</code>.</li>
+        <li><code>cmi.completion_status</code> and <code>cmi.success_status</code> are separate.</li>
+        <li><code>cmi.score.scaled</code> runs 0&ndash;1, not 0&ndash;100.</li>
+        <li><code>cmi.session_time</code> must be an ISO&nbsp;8601 duration such as
+            <code>PT1M23S</code>.</li>
+        <li>Set launch mode to <em>Browse</em> or <em>Review</em>: nothing should be recorded
+            beyond the bare session.</li>
+      </ul>
+
+      <h2>xAPI and cmi5</h2>
+      <ul>
+        <li>cmi5 requires <code>initialized</code> first and <code>terminated</code> last.</li>
+        <li><code>completed</code>, <code>passed</code> and <code>failed</code> must carry a
+            <code>duration</code>.</li>
+        <li>Every cmi5 statement must carry the
+            <code>.../context/categories/cmi5</code> category, and any statement with
+            completion or success must also carry <code>.../moveon</code>.</li>
+        <li>The session id from <code>LMS.LaunchData</code>'s
+            <code>contextTemplate</code> must appear on every statement.</li>
+        <li>Statement ids must be UUIDs.</li>
+        <li>In Browse or Review mode only <code>initialized</code> and
+            <code>terminated</code> are allowed.</li>
+      </ul>
+    </div>
+  </aside>
+
+</main>
+
+<script src="harness.js"></script>
+</body>
+</html>

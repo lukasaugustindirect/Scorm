@@ -2,10 +2,12 @@
 
 import { renderPdf, peek } from './pdf-render.js';
 import { buildPackage, bundle } from './package-builder.js';
+import { LANGUAGES, uiStrings, fill } from './i18n.js';
 
 const el = (id) => document.getElementById(id);
 
 const ui = {
+  uiLanguage: el('ui-language'),
   drop: el('drop'),
   file: el('file'),
   filemeta: el('filemeta'),
@@ -28,6 +30,8 @@ const ui = {
   quality: el('quality'),
   qualityOut: el('quality-out'),
   extractText: el('extract-text'),
+  includeSchemas: el('include-schemas'),
+  schemasRow: el('schemas-row'),
   build: el('build'),
   progress: el('progress'),
   progressFill: el('progress-fill'),
@@ -40,13 +44,85 @@ const ui = {
   preview: el('preview'),
 };
 
+const LANGUAGE_KEY = 'pdf-to-scorm.uiLanguage';
+
 // The File is kept rather than its bytes: pdf.js transfers the ArrayBuffer it
 // is handed to its worker, which detaches it. Re-reading the File keeps a
 // second build from failing on a dead buffer.
 let pdfFile = null;
+let pdfInfo = null;
+let strings = uiStrings('en');
 let built = [];
 let objectUrls = [];
 let busy = false;
+
+const t = (key, values) => fill(strings[key], values);
+
+/* ---------- language ---------- */
+
+function storedLanguage() {
+  try {
+    return window.localStorage.getItem(LANGUAGE_KEY) || '';
+  } catch {
+    // Private windows and locked-down browsers throw on access rather than
+    // returning null, so this can never be left unguarded.
+    return '';
+  }
+}
+
+function rememberLanguage(code) {
+  try {
+    window.localStorage.setItem(LANGUAGE_KEY, code);
+  } catch {
+    /* a remembered preference is a convenience, not a requirement */
+  }
+}
+
+function initLanguages() {
+  for (const select of [ui.uiLanguage, ui.language]) {
+    select.replaceChildren();
+    for (const language of LANGUAGES) {
+      const option = document.createElement('option');
+      option.value = language.code;
+      option.textContent = language.label;
+      select.appendChild(option);
+    }
+  }
+
+  const initial = LANGUAGES.some((l) => l.code === storedLanguage())
+    ? storedLanguage()
+    : (LANGUAGES.find((l) => navigator.language.toLowerCase().startsWith(l.code))?.code || 'en');
+
+  ui.uiLanguage.value = initial;
+  // The course defaults to the same language as the interface, which is right
+  // far more often than not, and stays independently changeable.
+  ui.language.value = initial;
+
+  ui.uiLanguage.addEventListener('change', () => {
+    rememberLanguage(ui.uiLanguage.value);
+    applyLanguage();
+  });
+  applyLanguage();
+}
+
+function applyLanguage() {
+  const code = ui.uiLanguage.value;
+  strings = uiStrings(code);
+  document.documentElement.lang = code;
+
+  for (const node of document.querySelectorAll('[data-i18n]')) {
+    const value = strings[node.dataset.i18n];
+    if (value) node.textContent = value;
+  }
+  for (const node of document.querySelectorAll('[data-i18n-placeholder]')) {
+    const value = strings[node.dataset.i18nPlaceholder];
+    if (value) node.placeholder = value;
+  }
+
+  // Text built at runtime is not covered by the attribute sweep.
+  if (pdfFile && pdfInfo) describeFile(pdfFile, pdfInfo);
+  ui.uiLanguage.setAttribute('aria-label', t('app.language'));
+}
 
 /* ---------- intake ---------- */
 
@@ -78,15 +154,22 @@ ui.file.addEventListener('change', () => {
   if (ui.file.files[0]) accept(ui.file.files[0]);
 });
 
+function describeFile(file, info) {
+  const count = info.numPages;
+  const unit = t(count === 1 ? 'source.page' : 'source.pages');
+  ui.filemeta.textContent = `${file.name} — ${formatBytes(file.size)}, ${count} ${unit}`;
+}
+
 async function accept(file) {
   const looksLikePdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
   if (!looksLikePdf) {
-    fail(`${file.name} does not look like a PDF.`);
+    fail(t('source.notPdf', { name: file.name }));
     return;
   }
 
   clearError();
   pdfFile = file;
+  pdfInfo = null;
   built = [];
   ui.results.hidden = true;
   ui.previewCard.hidden = true;
@@ -94,23 +177,22 @@ async function accept(file) {
 
   const stem = file.name.replace(/\.pdf$/i, '');
   ui.filemeta.hidden = false;
-  ui.filemeta.textContent = `${file.name} — ${formatBytes(file.size)}, reading…`;
+  ui.filemeta.textContent = `${file.name} — ${formatBytes(file.size)}, ${t('source.reading')}`;
 
   try {
     const info = await peek(await file.arrayBuffer());
-    ui.filemeta.textContent =
-      `${file.name} — ${formatBytes(file.size)}, ${info.numPages} ` +
-      `${info.numPages === 1 ? 'page' : 'pages'}`;
+    pdfInfo = info;
+    describeFile(file, info);
 
     if (!ui.title.value) ui.title.value = info.title || stem;
     if (!ui.description.value && info.subject) ui.description.value = info.subject;
     ui.build.disabled = false;
   } catch (err) {
     pdfFile = null;
+    pdfInfo = null;
     ui.build.disabled = true;
     ui.filemeta.textContent = `${file.name} — ${formatBytes(file.size)}`;
-    fail(`This PDF could not be opened: ${err.message}. ` +
-         'A password-protected or corrupt file will fail here.');
+    fail(t('source.openFailed', { message: err.message }));
   }
 }
 
@@ -131,6 +213,8 @@ function syncStandardOptions() {
   const chosen = selectedStandards();
   ui.moveOnField.hidden = !chosen.includes('cmi5');
   ui.perPageRow.hidden = !chosen.includes('xapi');
+  // Only the two SCORM standards have schemas to ship.
+  ui.schemasRow.hidden = !chosen.some((id) => id.startsWith('scorm'));
 }
 
 function selectedStandards() {
@@ -143,10 +227,10 @@ function settings() {
   const parsedMastery = masteryPercent === '' ? null : Number(masteryPercent);
 
   return {
-    title: ui.title.value.trim() || 'Course',
+    title: ui.title.value.trim() || t('build.heading'),
     description: ui.description.value.trim(),
     identifier: ui.identifier.value.trim(),
-    language: ui.language.value.trim() || 'en',
+    language: ui.language.value,
     activityIri: ui.activityIri.value.trim(),
     completionRule: ui.completionRule.value,
     completionThreshold: Number(ui.threshold.value) || 80,
@@ -162,6 +246,7 @@ function settings() {
     format: ui.format.value,
     quality: Number(ui.quality.value) / 100,
     extractText: ui.extractText.checked,
+    includeSchemas: ui.includeSchemas.checked,
   };
 }
 
@@ -174,7 +259,7 @@ async function run() {
 
   const standards = selectedStandards();
   if (!standards.length) {
-    fail('Pick at least one standard to build.');
+    fail(t('build.noStandards'));
     return;
   }
 
@@ -193,16 +278,14 @@ async function run() {
     // Rendering dominates the wall clock, so it gets most of the bar.
     const RENDER_SHARE = 0.75;
 
-    setProgress(0, 'Reading the PDF…');
+    setProgress(0, t('build.reading'));
     const bytes = await pdfFile.arrayBuffer();
 
     const render = await renderPdf(bytes, options, (done, total) => {
-      setProgress((done / total) * RENDER_SHARE, `Rendering page ${done} of ${total}…`);
+      setProgress((done / total) * RENDER_SHARE, t('build.rendering', { done, total }));
     });
 
-    if (!options.title || options.title === 'Course') {
-      options.title = render.title || options.title;
-    }
+    if (render.title && !ui.title.value.trim()) options.title = render.title;
 
     showPreview(render);
 
@@ -210,12 +293,12 @@ async function run() {
       const id = standards[i];
       setProgress(
         RENDER_SHARE + ((i / standards.length) * (1 - RENDER_SHARE)),
-        `Packaging ${id}…`,
+        t('build.packaging', { standard: id }),
       );
       built.push(await buildPackage(render, options, id));
     }
 
-    setProgress(1, `Done — ${built.length} ${built.length === 1 ? 'package' : 'packages'} built.`);
+    setProgress(1, t('build.done', { count: built.length }));
     showResults(options);
   } catch (err) {
     ui.progress.hidden = true;
@@ -256,7 +339,7 @@ function showPreview(render) {
   if (render.pages.length > shown.length) {
     const note = document.createElement('figure');
     const caption = document.createElement('figcaption');
-    caption.textContent = `+${render.pages.length - shown.length} more`;
+    caption.textContent = t('build.more', { count: render.pages.length - shown.length });
     note.appendChild(caption);
     frag.appendChild(note);
   }
@@ -282,7 +365,7 @@ function showResults(options) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'dl';
-    button.textContent = 'Download';
+    button.textContent = t('build.download');
     button.addEventListener('click', () => save(pkg.blob, pkg.filename));
 
     item.append(name, size, button);
@@ -301,7 +384,7 @@ function showResults(options) {
       const all = await bundle(built, options.identifier || options.title);
       save(all.blob, all.filename);
     } catch (err) {
-      fail(`Could not bundle the packages: ${err.message}`);
+      fail(t('build.bundleFailed', { message: err.message }));
     } finally {
       ui.downloadAll.disabled = false;
     }
@@ -346,4 +429,5 @@ function formatBytes(bytes) {
   return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
 }
 
+initLanguages();
 syncStandardOptions();

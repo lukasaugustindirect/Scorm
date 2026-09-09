@@ -46,6 +46,16 @@ code {
   border-radius: .25rem;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ---- masthead ---- */
 
 .masthead {
@@ -53,11 +63,19 @@ code {
   margin: 0 auto;
   padding: 2.5rem 0 1.5rem;
 }
+.masthead__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
 .masthead h1 {
   margin: 0;
   font-size: 1.75rem;
   letter-spacing: -.02em;
 }
+.field--lang { flex: 0 0 auto; margin: 0; }
+.field--lang select { width: auto; padding: .3rem .5rem; font-size: .85rem; }
 .masthead__sub {
   margin: .375rem 0 0;
   max-width: 40rem;

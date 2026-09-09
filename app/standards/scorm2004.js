@@ -13,15 +13,51 @@
 //   - adlnav hiding of the LMS's own next/previous chrome, since the player
 //     provides its own and two sets of page controls confuse learners.
 //
-// See scorm12.js for why xsi:schemaLocation is left out.
+// imsss:sequencingType is an xs:sequence, so child order is part of validity:
+// controlMode, sequencingRules, limitConditions, auxiliaryResources,
+// rollupRules, objectives, randomizationControls, deliveryControls,
+// sequencingCollection. objectives therefore precedes deliveryControls -- the
+// reverse parses as XML but is rejected by the schema.
+//
+// See scorm12.js for when xsi:schemaLocation is emitted.
 
 import { text, DECLARATION } from './xml.js';
+
+// The complete import closure. imsss is split across ten files, all pulled in
+// by imsss_v1p0.xsd, so every one has to travel with the package.
+const SCHEMA_FILES = [
+  'imscp_v1p1.xsd',
+  'adlcp_v1p3.xsd',
+  'adlseq_v1p3.xsd',
+  'adlnav_v1p3.xsd',
+  'imsss_v1p0.xsd',
+  'imsss_v1p0auxresource.xsd',
+  'imsss_v1p0control.xsd',
+  'imsss_v1p0delivery.xsd',
+  'imsss_v1p0limit.xsd',
+  'imsss_v1p0objective.xsd',
+  'imsss_v1p0random.xsd',
+  'imsss_v1p0rollup.xsd',
+  'imsss_v1p0seqrule.xsd',
+  'imsss_v1p0util.xsd',
+  'xml.xsd',
+];
+
+const SCHEMA_LOCATION = [
+  'http://www.imsglobal.org/xsd/imscp_v1p1 SCORM-schemas/imscp_v1p1.xsd',
+  'http://www.adlnet.org/xsd/adlcp_v1p3 SCORM-schemas/adlcp_v1p3.xsd',
+  'http://www.adlnet.org/xsd/adlseq_v1p3 SCORM-schemas/adlseq_v1p3.xsd',
+  'http://www.adlnet.org/xsd/adlnav_v1p3 SCORM-schemas/adlnav_v1p3.xsd',
+  'http://www.imsglobal.org/xsd/imsss SCORM-schemas/imsss_v1p0.xsd',
+];
 
 export default {
   id: 'scorm2004',
   label: 'SCORM 2004 4th Edition',
   adapter: 'scorm2004',
   manifestName: 'imsmanifest.xml',
+  schemaDir: 'scorm2004',
+  schemaFiles: SCHEMA_FILES,
 
   files(course, paths) {
     const org = `ORG-${course.identifier}`;
@@ -40,6 +76,11 @@ export default {
       .map((path) => `      <file href="${text(path)}"/>`)
       .join('\n');
 
+    const schemaLocation = course.includeSchemas
+      ? `\n          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n` +
+        `          xsi:schemaLocation="${SCHEMA_LOCATION.join('\n                              ')}"`
+      : '';
+
     return [{
       path: 'imsmanifest.xml',
       text: `${DECLARATION}
@@ -48,7 +89,7 @@ export default {
           xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_v1p3"
           xmlns:adlseq="http://www.adlnet.org/xsd/adlseq_v1p3"
           xmlns:adlnav="http://www.adlnet.org/xsd/adlnav_v1p3"
-          xmlns:imsss="http://www.imsglobal.org/xsd/imsss">
+          xmlns:imsss="http://www.imsglobal.org/xsd/imsss"${schemaLocation}>
   <metadata>
     <schema>ADL SCORM</schema>
     <schemaversion>2004 4th Edition</schemaversion>
@@ -58,8 +99,8 @@ export default {
       <title>${text(course.title)}</title>
       <item identifier="${item}" identifierref="${res}" isvisible="true">
         <title>${text(course.title)}</title>
-        <imsss:sequencing>
-          <imsss:deliveryControls completionSetByContent="true" objectiveSetByContent="true"/>${objectives}
+        <imsss:sequencing>${objectives}
+          <imsss:deliveryControls completionSetByContent="true" objectiveSetByContent="true"/>
         </imsss:sequencing>
         <adlnav:presentation>
           <adlnav:navigationInterface>

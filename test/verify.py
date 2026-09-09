@@ -8,10 +8,26 @@ inside is the one matching the standard.
 """
 
 import json
+import re
+import shutil
+import subprocess
 import sys
+import tempfile
 import zipfile
 from pathlib import Path
 from xml.etree import ElementTree
+
+REPO = Path(__file__).resolve().parent.parent
+
+# Real XSD validation, which catches what namespace checks cannot -- notably
+# child-order violations, since imsss:sequencingType is an xs:sequence.
+# The _driver.xsd files import every namespace a manifest uses, giving xmllint
+# one entry point. tincan.xsd is not publicly reachable, so xAPI has no entry.
+SCHEMA_DRIVERS = {
+    "scorm12": REPO / "schemas" / "scorm12" / "_driver.xsd",
+    "scorm2004": REPO / "schemas" / "scorm2004" / "_driver.xsd",
+    "cmi5": REPO / "schemas" / "cmi5-CourseStructure.xsd",
+}
 
 CP12 = "http://www.imsproject.org/xsd/imscp_rootv1p1p2"
 ADLCP12 = "http://www.adlnet.org/xsd/adlcp_rootv1p2"
@@ -67,6 +83,21 @@ def check(ok, label, detail=""):
 
 def q(ns, tag):
     return f"{{{ns}}}{tag}"
+
+
+def resource_files(names):
+    """Package entries that make up the resource, so must be declared.
+
+    The manifest itself is excluded, and so is SCORM-schemas/: those are
+    package-level metadata rather than part of the resource, which is how the
+    ADL reference packages treat them too.
+    """
+    return {
+        n for n in names
+        if not n.endswith("/")
+        and n != "imsmanifest.xml"
+        and not n.startswith("SCORM-schemas/")
+    }
 
 
 def verify_common(zf, standard, page_count):
@@ -157,7 +188,7 @@ def verify_scorm12(zf, names, page_count):
           "scorm12: resource href is index.html")
 
     declared = {f.get("href") for f in resource.findall(q(CP12, "file"))}
-    packaged = {n for n in names if not n.endswith("/") and n != "imsmanifest.xml"}
+    packaged = resource_files(names)
     check(packaged.issubset(declared),
           "scorm12: every packaged file is declared in <file> elements",
           f"undeclared: {sorted(packaged - declared)[:5]}")
@@ -193,7 +224,7 @@ def verify_scorm2004(zf, names, page_count):
           str(resource.attrib))
 
     declared = {f.get("href") for f in resource.findall(q(CP2004, "file"))}
-    packaged = {n for n in names if not n.endswith("/") and n != "imsmanifest.xml"}
+    packaged = resource_files(names)
     check(packaged.issubset(declared),
           "scorm2004: every packaged file is declared in <file> elements",
           f"undeclared: {sorted(packaged - declared)[:5]}")
@@ -290,12 +321,151 @@ def verify_cmi5(zf, names, page_count):
     check(url in names, "cmi5: the launch target exists in the zip")
 
 
+def validate_against_schema(zf, path, standard):
+    """Validates the manifest with xmllint against the vendored schemas."""
+    driver = SCHEMA_DRIVERS.get(standard)
+    if driver is None:
+        print(f"  --   {standard}: no public schema to validate against (tincan.xsd)")
+        return
+    if not shutil.which("xmllint"):
+        print(f"  SKIP {standard}: xmllint not installed, schema validation skipped")
+        return
+    if not driver.exists():
+        check(False, f"{standard}: schema driver exists", str(driver))
+        return
+
+    with tempfile.TemporaryDirectory() as tmp:
+        target = Path(tmp) / path
+        target.write_bytes(zf.read(path))
+        result = subprocess.run(
+            ["xmllint", "--noout", "--schema", str(driver), str(target)],
+            capture_output=True, text=True,
+        )
+
+    # scorm12/ims_xml.xsd makes the XML namespace its own default namespace,
+    # which libxml warns about. That is a quirk of the ADL schema itself, so
+    # the return code is what decides, not whether stderr is empty.
+    detail = " | ".join(
+        line for line in result.stderr.splitlines()
+        if "validates" not in line and "ims_xml.xsd" not in line
+        and "xml namespace URI" not in line and not line.startswith("filename=")
+        and "^" not in line
+    )
+    check(result.returncode == 0,
+          f"{standard}: {path} validates against the official schema", detail)
+
+
 VERIFIERS = {
     "scorm12": verify_scorm12,
     "scorm2004": verify_scorm2004,
     "xapi": verify_xapi,
     "cmi5": verify_cmi5,
 }
+
+
+SCHEMA_NS_HINTS = {
+    "scorm12": "SCORM-schemas/imscp_rootv1p1p2.xsd",
+    "scorm2004": "SCORM-schemas/imsss_v1p0.xsd",
+}
+
+
+def verify_with_schemas(out, page_count):
+    """Checks the variant built with "Include SCORM schema files" ticked."""
+    folder = out / "withschemas"
+    if not folder.is_dir():
+        return
+
+    print("\n--- packages built with schema files included ---")
+    for path in sorted(folder.glob("*.zip")):
+        standard = next((s for s in SCHEMA_DRIVERS if path.stem.endswith(s)), None)
+        if standard not in SCHEMA_NS_HINTS:
+            continue
+
+        print(f"\n{path.name}  ({standard}, schemas on)")
+        with zipfile.ZipFile(path) as zf:
+            names = set(zf.namelist())
+            expected = [n for n in names if n.startswith("SCORM-schemas/")]
+            check(len(expected) >= 4,
+                  f"{standard}: schema files are in the package",
+                  f"found {len(expected)}")
+
+            manifest = zf.read("imsmanifest.xml").decode("utf-8")
+            check("xsi:schemaLocation" in manifest,
+                  f"{standard}: xsi:schemaLocation is emitted when schemas ship")
+            check(SCHEMA_NS_HINTS[standard] in manifest,
+                  f"{standard}: schemaLocation points into SCORM-schemas/")
+
+            # Every schemaLocation path must resolve to a file that is present,
+            # which is the whole reason the attribute is conditional.
+            hints = re.findall(r"(SCORM-schemas/[\w.]+\.xsd)", manifest)
+            absent = sorted(h for h in hints if h not in names)
+            check(not absent,
+                  f"{standard}: every schemaLocation target exists in the zip",
+                  str(absent))
+
+            validate_against_schema(zf, "imsmanifest.xml", standard)
+
+            # The schemas must not be declared as resource files.
+            root = ElementTree.fromstring(manifest)
+            ns = CP12 if standard == "scorm12" else CP2004
+            resource = root.find(f"{q(ns, 'resources')}/{q(ns, 'resource')}")
+            declared = {f.get("href") for f in resource.findall(q(ns, "file"))}
+            check(not any(d.startswith("SCORM-schemas/") for d in declared),
+                  f"{standard}: schema files are not declared as resource files")
+
+
+CZECH_EXPECTED = {
+    "next": "Další",
+    "previous": "Předchozí",
+    "returnToLms": "Zpět do LMS",
+}
+
+
+def verify_czech(out, page_count):
+    """Checks the Czech build: the player's strings ship inside the package."""
+    folder = out / "czech"
+    if not folder.is_dir():
+        return
+
+    print("\n--- packages built in Czech ---")
+    for path in sorted(folder.glob("*.zip")):
+        standard = next((s for s in VERIFIERS if path.stem.endswith(s)), None)
+        if standard is None:
+            continue
+
+        print(f"\n{path.name}  ({standard}, cs)")
+        with zipfile.ZipFile(path) as zf:
+            content = json.loads(zf.read("content/pages.json"))
+            check(content.get("language") == "cs",
+                  f"{standard}: pages.json records the course language",
+                  str(content.get("language")))
+
+            shipped = content.get("ui") or {}
+            check(bool(shipped), f"{standard}: player strings ship in the package")
+            for key, expected in CZECH_EXPECTED.items():
+                check(shipped.get(key) == expected,
+                      f"{standard}: player string {key!r} is Czech",
+                      repr(shipped.get(key)))
+
+            # A partially translated table must still be complete, because a
+            # missing key leaves a button with no label at all.
+            check(len(shipped) >= 26,
+                  f"{standard}: player string table is complete",
+                  f"{len(shipped)} keys")
+
+            # cmi5 and xAPI carry the language in the manifest as well.
+            if standard == "cmi5":
+                root = ElementTree.fromstring(zf.read("cmi5.xml"))
+                langs = {e.get("lang") for e in root.iter(q(CMI5, "langstring"))}
+                check(langs == {"cs"},
+                      "cmi5: every langstring is tagged cs", str(langs))
+            if standard == "xapi":
+                root = ElementTree.fromstring(zf.read("tincan.xml"))
+                desc = root.find(f"{q(TINCAN, 'activities')}/{q(TINCAN, 'activity')}/"
+                                 f"{q(TINCAN, 'description')}")
+                check(desc is not None and desc.get("lang") == "cs",
+                      "xapi: description is tagged cs",
+                      desc.get("lang") if desc is not None else "absent")
 
 
 def main():
@@ -319,6 +489,13 @@ def main():
             check(bad is None, f"{standard}: archive is intact", str(bad))
             names = verify_common(zf, standard, page_count)
             VERIFIERS[standard](zf, names, page_count)
+
+            manifest = {"scorm12": "imsmanifest.xml", "scorm2004": "imsmanifest.xml",
+                        "cmi5": "cmi5.xml", "xapi": "tincan.xml"}[standard]
+            validate_against_schema(zf, manifest, standard)
+
+    verify_with_schemas(out, page_count)
+    verify_czech(out, page_count)
 
     missing = set(VERIFIERS) - {
         s for p in zips for s in VERIFIERS if p.stem.endswith(s)

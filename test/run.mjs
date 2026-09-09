@@ -14,6 +14,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { makePdf } from './fixture.mjs';
 import { testPlayer } from './player.mjs';
+import { testStatements } from './statements.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -102,7 +103,13 @@ async function main() {
     // rather than show up as a mysterious timeout later.
     page.on('pageerror', (err) => problems.push(`page error: ${err.message}`));
     page.on('console', (msg) => {
-      if (msg.type() === 'error') problems.push(`console error: ${msg.text()}`);
+      if (msg.type() !== 'error') return;
+      // A 404 from the stub State API is the correct answer to "is there a
+      // bookmark for this learner yet", and the adapters handle it as such.
+      // The browser still logs it, so it must not be mistaken for a fault.
+      const from = msg.location()?.url || '';
+      if (/\/_lrs\/activities\/state/.test(from)) return;
+      problems.push(`console error: ${msg.text()} (${from})`);
     });
 
     await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
@@ -158,11 +165,64 @@ async function main() {
       problems.push(`UI reported an error: ${await page.textContent('#error')}`);
     }
 
+    // Second pass with the schema files included. The default is off, so both
+    // paths need exercising: the conditional xsi:schemaLocation is only
+    // correct if the files it points at are actually there.
+    await mkdir(join(OUT, 'withschemas'), { recursive: true });
+    await page.check('#include-schemas');
+    await page.click('#build');
+    await page.waitForSelector('#results:not([hidden])', { timeout: 120000 });
+
+    const schemaRows = await page.locator('#results-list li').count();
+    for (let i = 0; i < schemaRows; i++) {
+      const row = page.locator('#results-list li').nth(i);
+      const [download] = await Promise.all([
+        page.waitForEvent('download', { timeout: 60000 }),
+        row.locator('button.dl').click(),
+      ]);
+      const name = download.suggestedFilename();
+      await download.saveAs(join(OUT, 'withschemas', name));
+    }
+    console.log(`saved: ${schemaRows} packages with schema files`);
+    await page.uncheck('#include-schemas');
+
+    // Third pass in Czech, so the localisation is actually exercised: the
+    // player's labels are resolved at build time and baked into the package,
+    // which means a broken table produces a silently English course.
+    await mkdir(join(OUT, 'czech'), { recursive: true });
+    await page.selectOption('#ui-language', 'cs');
+    await page.selectOption('#language', 'cs');
+
+    const buildLabel = await page.textContent('#build');
+    if (!buildLabel.includes('Vytvořit')) {
+      problems.push(`converter UI did not switch to Czech, button reads: ${buildLabel.trim()}`);
+    }
+
+    await page.click('#build');
+    await page.waitForSelector('#results:not([hidden])', { timeout: 120000 });
+
+    const czechRows = await page.locator('#results-list li').count();
+    for (let i = 0; i < czechRows; i++) {
+      const row = page.locator('#results-list li').nth(i);
+      const [download] = await Promise.all([
+        page.waitForEvent('download', { timeout: 60000 }),
+        row.locator('button.dl').click(),
+      ]);
+      await download.saveAs(join(OUT, 'czech', download.suggestedFilename()));
+    }
+    console.log(`saved: ${czechRows} packages in Czech`);
+    await page.selectOption('#ui-language', 'en');
+    await page.selectOption('#language', 'en');
+
     if (!problems.length) {
       // Loading the built SCOs against a mock API is the only way to catch a
       // player that packages cleanly but never reports anything.
       console.log('\nrun-time stage');
-      problems.push(...await testPlayer(page, OUT, `http://127.0.0.1:${port}`, FIXTURE_PAGES));
+      const base = `http://127.0.0.1:${port}`;
+      problems.push(...await testPlayer(page, OUT, base, FIXTURE_PAGES));
+      // xAPI and cmi5 have no API object to mock, so they are driven through
+      // the harness against the stub LRS instead.
+      problems.push(...await testStatements(page, OUT, ROOT, base, FIXTURE_PAGES));
     }
   } finally {
     await browser.close();

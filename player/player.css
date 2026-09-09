@@ -98,6 +98,14 @@ html, body {
   font-weight: 500;
   white-space: nowrap;
 }
+.nav-btn--return {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-size: .85rem;
+  padding: .3rem .625rem;
+}
+.nav-btn--return[hidden] { display: none; }
+
 .icon-btn:hover, .nav-btn:hover:not(:disabled) { background: #f1f3f5; }
 .icon-btn:focus-visible, .nav-btn:focus-visible, .stage:focus-visible, .page-input:focus-visible {
   outline: 2px solid var(--accent);

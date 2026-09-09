@@ -223,9 +223,19 @@ window.PdfScormAdapter = (function () {
     saveProgress: function (progress) {
       if (!config) return;
 
-      if (perPage && !reported[progress.page]) {
-        reported[progress.page] = true;
-        sendQuietly(statement('experienced', pageObject(progress.page)));
+      // Driven off the visited list rather than progress.page: the player
+      // debounces saves, so paging quickly through a document coalesces several
+      // page turns into one call. Reporting only the current page would silently
+      // drop the ones passed over, which is exactly what per-page tracking is
+      // supposed to capture.
+      if (perPage) {
+        var seen = progress.visited || [progress.page];
+        for (var i = 0; i < seen.length; i++) {
+          if (!reported[seen[i]]) {
+            reported[seen[i]] = true;
+            sendQuietly(statement('experienced', pageObject(seen[i])));
+          }
+        }
       }
 
       saveState({

@@ -10,18 +10,36 @@
 //     renamed it to adlcp:scormType, and using the wrong casing makes an LMS
 //     treat the SCO as an asset, which silently disables all tracking.
 //
-// xsi:schemaLocation is deliberately omitted. It is only a hint, and pointing
-// it at .xsd files the package does not carry is worse than leaving it out:
-// a validating parser then fails to resolve the schema. LMSs key off the
-// namespace plus <schema>/<schemaversion>, which are exact here.
+// xsi:schemaLocation is emitted only when the package actually carries the
+// schema files (the "Include SCORM schema files" option). Pointing the hint at
+// .xsd files that are not there is worse than omitting it: a validating parser
+// then fails to resolve the schema. Without them, LMSs key off the namespace
+// plus <schema>/<schemaversion>, which are exact here.
 
 import { text, DECLARATION } from './xml.js';
+
+// The complete import closure: every schemaLocation inside these resolves to
+// a sibling, so a validator needs no network access.
+const SCHEMA_FILES = [
+  'imscp_rootv1p1p2.xsd',
+  'adlcp_rootv1p2.xsd',
+  'imsmd_rootv1p2p1.xsd',
+  'ims_xml.xsd',
+];
+
+const SCHEMA_LOCATION = [
+  'http://www.imsproject.org/xsd/imscp_rootv1p1p2 SCORM-schemas/imscp_rootv1p1p2.xsd',
+  'http://www.adlnet.org/xsd/adlcp_rootv1p2 SCORM-schemas/adlcp_rootv1p2.xsd',
+  'http://www.imsglobal.org/xsd/imsmd_rootv1p2p1 SCORM-schemas/imsmd_rootv1p2p1.xsd',
+];
 
 export default {
   id: 'scorm12',
   label: 'SCORM 1.2',
   adapter: 'scorm12',
   manifestName: 'imsmanifest.xml',
+  schemaDir: 'scorm12',
+  schemaFiles: SCHEMA_FILES,
 
   files(course, paths) {
     const org = `ORG-${course.identifier}`;
@@ -38,12 +56,17 @@ export default {
       .map((path) => `      <file href="${text(path)}"/>`)
       .join('\n');
 
+    const schemaLocation = course.includeSchemas
+      ? `\n          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n` +
+        `          xsi:schemaLocation="${SCHEMA_LOCATION.join('\n                              ')}"`
+      : '';
+
     return [{
       path: 'imsmanifest.xml',
       text: `${DECLARATION}
 <manifest identifier="${text(course.identifier)}" version="1"
           xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2"
-          xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2">
+          xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2"${schemaLocation}>
   <metadata>
     <schema>ADL SCORM</schema>
     <schemaversion>1.2</schemaversion>

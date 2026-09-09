@@ -7,10 +7,18 @@
 <link rel="stylesheet" href="app/app.css">
 </head>
 <body>
+<!-- Text carrying data-i18n is replaced at runtime from app/i18n.js. The
+     English in the markup is the fallback if the script fails to load. -->
 
 <header class="masthead">
-  <h1>PDF to SCORM</h1>
-  <p class="masthead__sub">
+  <div class="masthead__row">
+    <h1 data-i18n="app.title">PDF to SCORM</h1>
+    <p class="field field--lang">
+      <label class="sr-only" for="ui-language" data-i18n="app.language">Interface language</label>
+      <select id="ui-language"></select>
+    </p>
+  </div>
+  <p class="masthead__sub" data-i18n="app.tagline">
     Turn a PDF into a SCORM 1.2, SCORM 2004, xAPI or cmi5 course.
     Everything runs in this browser tab &mdash; the file is never uploaded.
   </p>
@@ -20,12 +28,13 @@
 
   <!-- ---------- 1. the PDF ---------- -->
   <section class="card" aria-labelledby="h-source">
-    <h2 class="card__title" id="h-source"><span class="step">1</span> Choose a PDF</h2>
+    <h2 class="card__title" id="h-source">
+      <span class="step">1</span> <span data-i18n="source.heading">Choose a PDF</span>
+    </h2>
 
-    <div class="drop" id="drop" tabindex="0" role="button"
-         aria-describedby="drop-hint">
-      <p class="drop__lead">Drop a PDF here, or click to browse</p>
-      <p class="drop__hint" id="drop-hint">Nothing leaves your computer.</p>
+    <div class="drop" id="drop" tabindex="0" role="button" aria-describedby="drop-hint">
+      <p class="drop__lead" data-i18n="source.drop">Drop a PDF here, or click to browse</p>
+      <p class="drop__hint" id="drop-hint" data-i18n="source.hint">Nothing leaves your computer.</p>
       <input type="file" id="file" accept="application/pdf,.pdf" hidden>
     </div>
 
@@ -34,38 +43,49 @@
 
   <!-- ---------- 2. course details ---------- -->
   <section class="card" aria-labelledby="h-course">
-    <h2 class="card__title" id="h-course"><span class="step">2</span> Course details</h2>
+    <h2 class="card__title" id="h-course">
+      <span class="step">2</span> <span data-i18n="course.heading">Course details</span>
+    </h2>
 
     <div class="grid">
       <p class="field field--wide">
-        <label for="title">Course title</label>
-        <input type="text" id="title" placeholder="Taken from the PDF if left empty">
+        <label for="title" data-i18n="course.title">Course title</label>
+        <input type="text" id="title" data-i18n-placeholder="course.titlePlaceholder">
       </p>
 
       <p class="field field--wide">
-        <label for="description">Description <span class="opt">optional</span></label>
-        <input type="text" id="description" placeholder="Shown by some LMSs in the catalogue">
+        <label for="description">
+          <span data-i18n="course.description">Description</span>
+          <span class="opt" data-i18n="optional">optional</span>
+        </label>
+        <input type="text" id="description" data-i18n-placeholder="course.descriptionPlaceholder">
       </p>
 
       <p class="field">
-        <label for="identifier">Identifier</label>
-        <input type="text" id="identifier" placeholder="derived from the title">
-        <span class="hint">Used as the manifest identifier and the zip filename.</span>
+        <label for="identifier" data-i18n="course.identifier">Identifier</label>
+        <input type="text" id="identifier" data-i18n-placeholder="course.identifierPlaceholder">
+        <span class="hint" data-i18n="course.identifierHint">
+          Used as the manifest identifier and the zip filename.
+        </span>
       </p>
 
       <p class="field">
-        <label for="language">Language</label>
-        <input type="text" id="language" value="en" size="4">
-        <span class="hint">Two-letter code, or a tag like <code>cs-CZ</code>.</span>
+        <label for="language" data-i18n="course.language">Course language</label>
+        <select id="language"></select>
+        <span class="hint" data-i18n="course.languageHint">
+          Sets the language of the buttons and labels inside the course.
+        </span>
       </p>
 
       <p class="field field--wide">
-        <label for="activity-iri">Activity IRI <span class="opt">xAPI and cmi5 only</span></label>
-        <input type="text" id="activity-iri"
-               placeholder="https://example.com/courses/my-course">
-        <span class="hint">
+        <label for="activity-iri">
+          <span data-i18n="course.iri">Activity IRI</span>
+          <span class="opt" data-i18n="course.iriScope">xAPI and cmi5 only</span>
+        </label>
+        <input type="text" id="activity-iri" placeholder="https://example.com/courses/my-course">
+        <span class="hint" data-i18n="course.iriHint">
           Must be globally unique and stable &mdash; it is how an LRS identifies this course
-          forever. Left empty, a <code>urn:</code> is derived from the identifier, which works
+          forever. Left empty, a urn: is derived from the identifier, which works
           but is worth replacing with a real domain you control.
         </span>
       </p>
@@ -74,35 +94,45 @@
 
   <!-- ---------- 3. standards ---------- -->
   <section class="card" aria-labelledby="h-standards">
-    <h2 class="card__title" id="h-standards"><span class="step">3</span> Standards to build</h2>
+    <h2 class="card__title" id="h-standards">
+      <span class="step">3</span> <span data-i18n="standards.heading">Standards to build</span>
+    </h2>
 
     <ul class="checks" id="standards">
       <li>
         <label>
           <input type="checkbox" value="scorm12" checked>
           <span class="checks__name">SCORM 1.2</span>
-          <span class="checks__note">Widest LMS support. Start here if unsure.</span>
+          <span class="checks__note" data-i18n="standards.scorm12note">
+            Widest LMS support. Start here if unsure.
+          </span>
         </label>
       </li>
       <li>
         <label>
           <input type="checkbox" value="scorm2004" checked>
           <span class="checks__name">SCORM 2004 4th Edition</span>
-          <span class="checks__note">Separate completion and pass/fail, plus partial progress.</span>
+          <span class="checks__note" data-i18n="standards.scorm2004note">
+            Separate completion and pass/fail, plus partial progress.
+          </span>
         </label>
       </li>
       <li>
         <label>
           <input type="checkbox" value="xapi" checked>
           <span class="checks__name">xAPI</span>
-          <span class="checks__note">Needs an LRS. Can record which pages were read.</span>
+          <span class="checks__note" data-i18n="standards.xapinote">
+            Needs an LRS. Can record which pages were read.
+          </span>
         </label>
       </li>
       <li>
         <label>
           <input type="checkbox" value="cmi5" checked>
           <span class="checks__name">cmi5</span>
-          <span class="checks__note">xAPI with a defined launch and course structure.</span>
+          <span class="checks__note" data-i18n="standards.cmi5note">
+            xAPI with a defined launch and course structure.
+          </span>
         </label>
       </li>
     </ul>
@@ -110,27 +140,37 @@
 
   <!-- ---------- 4. tracking ---------- -->
   <section class="card" aria-labelledby="h-tracking">
-    <h2 class="card__title" id="h-tracking"><span class="step">4</span> Completion and tracking</h2>
+    <h2 class="card__title" id="h-tracking">
+      <span class="step">4</span>
+      <span data-i18n="tracking.heading">Completion and tracking</span>
+    </h2>
 
     <div class="grid">
       <p class="field">
-        <label for="completion-rule">Mark complete when</label>
+        <label for="completion-rule" data-i18n="tracking.rule">Mark complete when</label>
         <select id="completion-rule">
-          <option value="all" selected>every page has been viewed</option>
-          <option value="percent">a share of pages has been viewed</option>
-          <option value="launch">the course is opened</option>
+          <option value="all" selected data-i18n="tracking.ruleAll">
+            every page has been viewed
+          </option>
+          <option value="percent" data-i18n="tracking.rulePercent">
+            a share of pages has been viewed
+          </option>
+          <option value="launch" data-i18n="tracking.ruleLaunch">the course is opened</option>
         </select>
       </p>
 
       <p class="field" id="threshold-field" hidden>
-        <label for="completion-threshold">Pages viewed (%)</label>
+        <label for="completion-threshold" data-i18n="tracking.threshold">Pages viewed (%)</label>
         <input type="number" id="completion-threshold" min="1" max="100" value="80">
       </p>
 
       <p class="field">
-        <label for="mastery">Mastery score (%) <span class="opt">optional</span></label>
-        <input type="number" id="mastery" min="0" max="100" placeholder="none">
-        <span class="hint">
+        <label for="mastery">
+          <span data-i18n="tracking.mastery">Mastery score (%)</span>
+          <span class="opt" data-i18n="optional">optional</span>
+        </label>
+        <input type="number" id="mastery" min="0" max="100">
+        <span class="hint" data-i18n="tracking.masteryHint">
           Set this only if the LMS needs a pass/fail rather than just complete.
           A page-turner has nothing to grade, so the score is the share of pages read.
         </span>
@@ -152,8 +192,12 @@
       <li id="per-page-row">
         <label>
           <input type="checkbox" id="per-page" checked>
-          <span class="checks__name">Record a statement per page (xAPI)</span>
-          <span class="checks__note">One <code>experienced</code> statement the first time each page is opened.</span>
+          <span class="checks__name" data-i18n="tracking.perPage">
+            Record a statement per page (xAPI)
+          </span>
+          <span class="checks__note" data-i18n="tracking.perPageNote">
+            One experienced statement the first time each page is opened.
+          </span>
         </label>
       </li>
     </ul>
@@ -161,44 +205,62 @@
 
   <!-- ---------- 5. images ---------- -->
   <section class="card" aria-labelledby="h-images">
-    <h2 class="card__title" id="h-images"><span class="step">5</span> Page images</h2>
+    <h2 class="card__title" id="h-images">
+      <span class="step">5</span> <span data-i18n="images.heading">Page images</span>
+    </h2>
 
     <div class="grid">
       <p class="field">
-        <label for="dpi">Resolution (DPI)</label>
+        <label for="dpi" data-i18n="images.dpi">Resolution (DPI)</label>
         <select id="dpi">
-          <option value="96">96 &mdash; smallest</option>
-          <option value="150" selected>150 &mdash; balanced</option>
-          <option value="200">200 &mdash; sharp</option>
-          <option value="300">300 &mdash; print quality, large</option>
+          <option value="96" data-i18n="images.dpi96">96</option>
+          <option value="150" selected data-i18n="images.dpi150">150</option>
+          <option value="200" data-i18n="images.dpi200">200</option>
+          <option value="300" data-i18n="images.dpi300">300</option>
         </select>
       </p>
 
       <p class="field">
-        <label for="format">Image format</label>
+        <label for="format" data-i18n="images.format">Image format</label>
         <select id="format">
-          <option value="image/webp" selected>WebP &mdash; smallest</option>
-          <option value="image/jpeg">JPEG &mdash; most compatible</option>
-          <option value="image/png">PNG &mdash; lossless, largest</option>
+          <option value="image/webp" selected data-i18n="images.formatWebp">WebP</option>
+          <option value="image/jpeg" data-i18n="images.formatJpeg">JPEG</option>
+          <option value="image/png" data-i18n="images.formatPng">PNG</option>
         </select>
       </p>
 
       <p class="field">
-        <label for="quality">Quality</label>
+        <label for="quality" data-i18n="images.quality">Quality</label>
         <input type="range" id="quality" min="50" max="100" value="85" step="5">
-        <span class="hint"><output id="quality-out">85</output>% &mdash; ignored for PNG.</span>
+        <span class="hint"><output id="quality-out">85</output><span
+          data-i18n="images.qualityHint">% &mdash; ignored for PNG.</span></span>
       </p>
     </div>
 
     <ul class="checks checks--tight">
+      <li id="schemas-row">
+        <label>
+          <input type="checkbox" id="include-schemas">
+          <span class="checks__name" data-i18n="images.schemas">
+            Include SCORM schema files
+          </span>
+          <span class="checks__note" data-i18n="images.schemasNote">
+            Ships the ADL/IMS .xsd files in the package and points xsi:schemaLocation at
+            them. Off by default: most LMSs ignore the hint and it adds about 50 kB per
+            package. Turn it on for an LMS that validates strictly on import.
+          </span>
+        </label>
+      </li>
       <li>
         <label>
           <input type="checkbox" id="extract-text" checked>
-          <span class="checks__name">Include page text for screen readers</span>
-          <span class="checks__note">
+          <span class="checks__name" data-i18n="images.text">
+            Include page text for screen readers
+          </span>
+          <span class="checks__note" data-i18n="images.textNote">
             Each page's text is placed in a visually hidden caption beside its image, so the
-            course is not an unreadable wall of pictures. It is not a selectable text layer over
-            the page.
+            course is not an unreadable wall of pictures. It is not a selectable text layer
+            over the page.
           </span>
         </label>
       </li>
@@ -207,9 +269,11 @@
 
   <!-- ---------- build ---------- -->
   <section class="card card--action" aria-labelledby="h-build">
-    <h2 class="card__title" id="h-build"><span class="step">6</span> Build</h2>
+    <h2 class="card__title" id="h-build">
+      <span class="step">6</span> <span data-i18n="build.heading">Build</span>
+    </h2>
 
-    <button class="build" id="build" disabled>Build packages</button>
+    <button class="build" id="build" disabled data-i18n="build.action">Build packages</button>
 
     <div class="progress" id="progress" hidden>
       <div class="progress__bar"><div class="progress__fill" id="progress-fill"></div></div>
@@ -219,24 +283,24 @@
     <p class="error" id="error" hidden role="alert"></p>
 
     <div class="results" id="results" hidden>
-      <h3 class="results__title">Packages</h3>
+      <h3 class="results__title" data-i18n="build.results">Packages</h3>
       <ul class="results__list" id="results-list"></ul>
-      <button class="secondary" id="download-all" hidden>Download all as one zip</button>
+      <button class="secondary" id="download-all" hidden data-i18n="build.downloadAll">
+        Download all as one zip
+      </button>
     </div>
   </section>
 
   <section class="card" aria-labelledby="h-preview" id="preview-card" hidden>
-    <h2 class="card__title" id="h-preview">Rendered pages</h2>
+    <h2 class="card__title" id="h-preview" data-i18n="build.preview">Rendered pages</h2>
     <div class="preview" id="preview"></div>
   </section>
 
 </main>
 
 <footer class="footer">
-  <p>
-    Built with <a href="https://mozilla.github.io/pdf.js/">pdf.js</a> and
-    <a href="https://stuk.github.io/jszip/">JSZip</a>, both bundled locally so the
-    converter works offline.
+  <p data-i18n="footer">
+    Built with pdf.js and JSZip, both bundled locally so the converter works offline.
   </p>
 </footer>
 

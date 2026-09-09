@@ -11,9 +11,9 @@
 // once it has seeded the mock's store, which is what makes it possible to
 // replay a suspended attempt deterministically.
 
-import { mkdir, writeFile, rm } from 'node:fs/promises';
-import { execFileSync } from 'node:child_process';
+import { mkdir, writeFile, rm, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { readZip } from '../tools/unpack.mjs';
 
 const MOCK = `
 window.__calls = [];
@@ -109,11 +109,14 @@ export async function testPlayer(page, outDir, baseUrl, pageCount) {
   await mkdir(runDir, { recursive: true });
 
   for (const standard of ['scorm12', 'scorm2004']) {
-    await mkdir(join(runDir, standard), { recursive: true });
-    execFileSync('unzip', [
-      '-q', '-o', join(outDir, `fixture-course-${standard}.zip`),
-      '-d', join(runDir, standard),
-    ]);
+    const target = join(runDir, standard);
+    // Uses the repo's own zip reader rather than the unzip binary, so the suite
+    // needs nothing installed and tools/unpack.mjs gets covered too.
+    for (const entry of readZip(await readFile(join(outDir, `fixture-course-${standard}.zip`)))) {
+      const file = join(target, entry.name);
+      await mkdir(join(file, '..'), { recursive: true });
+      await writeFile(file, entry.data);
+    }
     await writeFile(join(runDir, `${standard}.html`), harness(standard, standard));
   }
 

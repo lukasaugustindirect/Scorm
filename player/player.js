@@ -5,11 +5,14 @@
  *
  *   adapter.label                       human-readable standard name
  *   adapter.init(manifest)  -> Promise<{
- *                                connected, learnerName, mode, state, error }>
+ *                                connected, learnerName, mode, state,
+ *                                returnUrl, error }>
  *                              state is whatever was handed to saveProgress
  *                              last time, or null on a first attempt.
  *                              mode is 'normal' | 'browse' | 'review';
  *                              anything but 'normal' must not record results.
+ *                              returnUrl, when present, is a link back to the
+ *                              LMS (cmi5 supplies one in its launch data).
  *   adapter.saveProgress(p) -> void     p = {page, totalPages, visited, percent}
  *   adapter.setComplete(i)  -> void     i = {percent, score}
  *   adapter.finish(i)       -> void     i = {seconds, page, percent, complete}
@@ -17,15 +20,35 @@
  * Every method may throw or reject; the player treats the LMS as best-effort
  * and keeps working when it is absent, so the same package can be opened
  * straight from disk for review.
+ *
+ * Interface text comes from content/pages.json, resolved for the course
+ * language at build time. English is compiled in as a fallback so a package
+ * built by an older version still has labelled buttons.
  */
 (function () {
   'use strict';
 
   var SAVE_DEBOUNCE_MS = 1200;
   var ZOOM_MODES = ['page', 'width', 'actual'];
-  var ZOOM_LABELS = { page: 'Fit page', width: 'Fit width', actual: 'Actual size' };
+  var ZOOM_LABEL_KEYS = { page: 'fitPage', width: 'fitWidth', actual: 'actualSize' };
+
+  var FALLBACK = {
+    previous: 'Previous', next: 'Next', pageNumber: 'Page number',
+    pageOf: 'Page {n} of {total}', goToPage: 'Go to page {n}',
+    viewed: '{percent}% viewed', pagesViewed: 'Pages viewed',
+    thumbnails: 'Show page thumbnails', pages: 'Pages', pageContent: 'Page content',
+    fitPage: 'Fit page', fitWidth: 'Fit width', actualSize: 'Actual size',
+    changeZoom: 'Change zoom', fullscreen: 'Full screen',
+    fullscreenUnavailable: 'Full screen is not available here',
+    connected: 'Connected', connectedMode: 'Connected ({mode})',
+    notConnected: 'Not connected', lmsUnavailable: 'LMS unavailable',
+    loading: 'Loading…', loadFailed: 'This course could not be loaded: {message}',
+    resumed: 'Resumed on page {n}', markedComplete: 'Course marked complete',
+    returnToLms: 'Return to the LMS', course: 'Course'
+  };
 
   var el = {};
+  var strings = FALLBACK;
   var manifest = null;
   var pages = [];
   var current = 1;
@@ -46,19 +69,48 @@
     finish: function () {},
   };
 
+  function t(key, values) {
+    var template = strings[key] || FALLBACK[key] || '';
+    return template.replace(/\{(\w+)\}/g, function (whole, name) {
+      return values && name in values ? String(values[name]) : whole;
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     cacheElements();
+    applyStrings();
     wireEvents();
     boot();
   });
 
   function cacheElements() {
-    ['viewer', 'course-title', 'lms-status', 'thumbs', 'toggle-thumbs', 'stage',
-     'page-figure', 'page-img', 'page-text', 'loading', 'prev', 'next',
-     'page-input', 'page-total', 'progress', 'progress-fill', 'progress-label',
-     'zoom-mode', 'fullscreen', 'toast'].forEach(function (id) {
+    ['viewer', 'course-title', 'lms-status', 'thumbs', 'toggle-thumbs',
+     'toggle-thumbs-label', 'stage', 'page-figure', 'page-img', 'page-text',
+     'loading', 'prev', 'prev-label', 'next', 'next-label', 'page-input',
+     'page-input-label', 'page-total', 'progress', 'progress-fill',
+     'progress-label', 'zoom-mode', 'zoom-mode-label', 'fullscreen',
+     'fullscreen-label', 'return-lms', 'toast'].forEach(function (id) {
       el[id] = document.getElementById(id);
     });
+  }
+
+  function applyStrings() {
+    el.loading.textContent = t('loading');
+    el['prev-label'].textContent = t('previous');
+    el['next-label'].textContent = t('next');
+    el.prev.setAttribute('aria-label', t('previous'));
+    el.next.setAttribute('aria-label', t('next'));
+    el['page-input-label'].textContent = t('pageNumber');
+    el['toggle-thumbs-label'].textContent = t('thumbnails');
+    el['toggle-thumbs'].title = t('thumbnails');
+    el.thumbs.setAttribute('aria-label', t('pages'));
+    el.stage.setAttribute('aria-label', t('pageContent'));
+    el.progress.setAttribute('aria-label', t('pagesViewed'));
+    el['zoom-mode-label'].textContent = t('changeZoom');
+    el['fullscreen-label'].textContent = t('fullscreen');
+    el.fullscreen.title = t('fullscreen');
+    el['return-lms'].textContent = t('returnToLms');
+    el['zoom-mode'].title = t(ZOOM_LABEL_KEYS[zoom]);
   }
 
   function boot() {
@@ -70,10 +122,16 @@
       .then(function (data) {
         manifest = data;
         pages = data.pages || [];
+        if (data.ui) {
+          // Merged over the fallback so a missing key can never blank a label.
+          strings = Object.assign({}, FALLBACK, data.ui);
+          applyStrings();
+        }
+        if (data.language) document.documentElement.lang = data.language;
         if (!pages.length) throw new Error('package contains no pages');
 
-        document.title = data.title || 'Course';
-        el['course-title'].textContent = data.title || 'Course';
+        document.title = data.title || t('course');
+        el['course-title'].textContent = data.title || t('course');
         el['page-total'].textContent = String(pages.length);
         el['page-input'].max = String(pages.length);
         buildThumbs();
@@ -86,7 +144,7 @@
         if (completionRule() === 'launch') markComplete();
       })
       .catch(function (err) {
-        el.loading.textContent = 'This course could not be loaded: ' + err.message;
+        el.loading.textContent = t('loadFailed', { message: err.message });
         el.loading.hidden = false;
       });
   }
@@ -97,13 +155,17 @@
       .then(function (result) {
         session = Object.assign({ connected: false, mode: 'normal' }, result || {});
         setStatus(session.connected
-          ? (session.mode === 'normal' ? 'Connected' : 'Connected (' + session.mode + ')')
-          : 'Not connected', session.connected ? 'ok' : 'idle');
+          ? (session.mode === 'normal' ? t('connected') : t('connectedMode', { mode: session.mode }))
+          : t('notConnected'), session.connected ? 'ok' : 'idle');
         if (session.error) setStatus(session.error, 'error');
+
+        // cmi5 hands the AU a URL to send the learner back to; other standards
+        // leave the LMS in charge of its own chrome, so there is nothing to show.
+        if (session.returnUrl) el['return-lms'].hidden = false;
       })
       .catch(function (err) {
         session = { connected: false, mode: 'normal' };
-        setStatus('LMS unavailable', 'error');
+        setStatus(t('lmsUnavailable'), 'error');
         // Worth surfacing: a package that silently stops tracking looks fine to
         // the learner and shows nothing to whoever assigned the course.
         if (window.console) console.warn('LMS init failed:', err);
@@ -124,7 +186,7 @@
     }
     var page = Number(state.page);
     if (page >= 1 && page <= pages.length) {
-      if (page > 1) toast('Resumed on page ' + page);
+      if (page > 1) toast(t('resumed', { n: page }));
       return page;
     }
     return 1;
@@ -142,7 +204,7 @@
       btn.innerHTML = '<img alt="" loading="lazy"><span class="thumb__n"></span>';
       btn.querySelector('img').src = 'content/' + page.src;
       btn.querySelector('.thumb__n').textContent = String(page.n);
-      btn.setAttribute('aria-label', 'Go to page ' + page.n);
+      btn.setAttribute('aria-label', t('goToPage', { n: page.n }));
       frag.appendChild(btn);
     });
     el.thumbs.appendChild(frag);
@@ -159,7 +221,7 @@
     el['page-img'].height = Math.round(page.h);
     // The image *is* the content, so its accessible name has to say which page
     // this is; the transcribed text sits in the figcaption next to it.
-    el['page-img'].alt = 'Page ' + n + ' of ' + pages.length;
+    el['page-img'].alt = t('pageOf', { n: n, total: pages.length });
     el['page-text'].textContent = page.text || '';
 
     el['page-input'].value = String(n);
@@ -171,10 +233,17 @@
     refreshThumbFlags();
     updateProgress();
 
-    if (!opts.silent) queueSave();
-    else scheduleSave(0);
-
-    if (!completeSent && completionMet()) markComplete();
+    if (!completeSent && completionMet()) {
+      // Flush first: otherwise the debounced save lands after the completion
+      // statement and the record reads out of order.
+      if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+      saveNow();
+      markComplete();
+    } else if (opts.silent) {
+      scheduleSave(0);
+    } else {
+      queueSave();
+    }
   }
 
   function refreshThumbFlags() {
@@ -195,7 +264,7 @@
     var pct = percent();
     el['progress-fill'].style.width = pct + '%';
     el.progress.setAttribute('aria-valuenow', String(pct));
-    el['progress-label'].textContent = pct + '% viewed';
+    el['progress-label'].textContent = t('viewed', { percent: pct });
   }
 
   function percent() {
@@ -226,7 +295,7 @@
 
     try {
       adapter.setComplete({ percent: percent(), score: scoreForCompletion() });
-      toast('Course marked complete');
+      toast(t('markedComplete'));
     } catch (err) {
       if (window.console) console.warn('setComplete failed:', err);
     }
@@ -309,14 +378,21 @@
     el['zoom-mode'].addEventListener('click', function () {
       zoom = ZOOM_MODES[(ZOOM_MODES.indexOf(zoom) + 1) % ZOOM_MODES.length];
       el.stage.dataset.zoom = zoom;
-      el['zoom-mode'].title = ZOOM_LABELS[zoom];
-      toast(ZOOM_LABELS[zoom]);
+      el['zoom-mode'].title = t(ZOOM_LABEL_KEYS[zoom]);
+      toast(t(ZOOM_LABEL_KEYS[zoom]));
     });
 
     el.fullscreen.addEventListener('click', function () {
       if (document.fullscreenElement) document.exitFullscreen();
       else if (el.viewer.requestFullscreen) el.viewer.requestFullscreen();
-      else toast('Full screen is not available here');
+      else toast(t('fullscreenUnavailable'));
+    });
+
+    el['return-lms'].addEventListener('click', function () {
+      // Close the session explicitly rather than relying on pagehide firing
+      // before navigation: the Terminated statement has to be recorded.
+      finish();
+      window.location.href = session.returnUrl;
     });
 
     document.addEventListener('keydown', function (event) {
@@ -335,7 +411,6 @@
     });
 
     el.stage.dataset.zoom = zoom;
-    el['zoom-mode'].title = ZOOM_LABELS[zoom];
 
     // pagehide is the one that fires reliably when an LMS swaps the iframe or
     // the learner closes the tab; beforeunload covers older desktop browsers.

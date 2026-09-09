@@ -7,58 +7,60 @@
 <link rel="stylesheet" href="player.css">
 </head>
 <body>
+<!-- Visible text is filled in by player.js from the strings the build step
+     resolved for the course language, so there is nothing to translate here. -->
 <div class="viewer" id="viewer">
 
   <header class="bar bar--top">
-    <button class="icon-btn" id="toggle-thumbs" aria-expanded="false" aria-controls="thumbs"
-            title="Show page thumbnails">
+    <button class="icon-btn" id="toggle-thumbs" aria-expanded="false" aria-controls="thumbs">
       <span class="icon-bars" aria-hidden="true"></span>
-      <span class="sr-only">Show page thumbnails</span>
+      <span class="sr-only" id="toggle-thumbs-label"></span>
     </button>
 
-    <h1 class="course-title" id="course-title">Course</h1>
+    <h1 class="course-title" id="course-title"></h1>
 
     <div class="bar__right">
       <span class="status" id="lms-status" role="status"></span>
-      <button class="icon-btn" id="zoom-mode" title="Fit width">
-        <span aria-hidden="true">⤢</span><span class="sr-only">Change zoom</span>
+      <button class="nav-btn nav-btn--return" id="return-lms" hidden></button>
+      <button class="icon-btn" id="zoom-mode">
+        <span aria-hidden="true">⤢</span><span class="sr-only" id="zoom-mode-label"></span>
       </button>
-      <button class="icon-btn" id="fullscreen" title="Full screen">
-        <span aria-hidden="true">⛶</span><span class="sr-only">Toggle full screen</span>
+      <button class="icon-btn" id="fullscreen">
+        <span aria-hidden="true">⛶</span><span class="sr-only" id="fullscreen-label"></span>
       </button>
     </div>
   </header>
 
   <div class="body">
-    <nav class="thumbs" id="thumbs" aria-label="Pages" hidden></nav>
+    <nav class="thumbs" id="thumbs" hidden></nav>
 
-    <main class="stage" id="stage" tabindex="0" aria-label="Page content">
+    <main class="stage" id="stage" tabindex="0">
       <figure class="page" id="page-figure">
         <img class="page__img" id="page-img" alt="">
         <figcaption class="sr-only" id="page-text"></figcaption>
       </figure>
-      <p class="loading" id="loading">Loading…</p>
+      <p class="loading" id="loading"></p>
     </main>
   </div>
 
   <footer class="bar bar--bottom">
     <button class="nav-btn" id="prev">
-      <span aria-hidden="true">‹</span> Previous
+      <span aria-hidden="true">‹</span> <span id="prev-label"></span>
     </button>
 
     <div class="progress-group">
-      <label class="sr-only" for="page-input">Page number</label>
+      <label class="sr-only" for="page-input" id="page-input-label"></label>
       <input class="page-input" id="page-input" type="number" min="1" value="1" inputmode="numeric">
       <span class="page-count">/ <span id="page-total">?</span></span>
       <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"
-           aria-valuenow="0" aria-label="Pages viewed" id="progress">
+           aria-valuenow="0" id="progress">
         <div class="progress__fill" id="progress-fill"></div>
       </div>
-      <span class="progress-label" id="progress-label">0% viewed</span>
+      <span class="progress-label" id="progress-label"></span>
     </div>
 
     <button class="nav-btn" id="next">
-      Next <span aria-hidden="true">›</span>
+      <span id="next-label"></span> <span aria-hidden="true">›</span>
     </button>
   </footer>
 

@@ -9,6 +9,7 @@
 //   lms-adapter.js        the standard's adapter, renamed on the way in
 //   content/pages.json    page list, geometry, transcribed text, settings
 //   content/p001.webp     one image per page
+//   SCORM-schemas/*.xsd   only when "Include SCORM schema files" is on
 //
 // The player is fetched from this site rather than inlined as a string, so it
 // stays ordinary editable source. That is also why the converter has to be
@@ -17,6 +18,7 @@
 import { BY_ID } from './standards/index.js';
 import { extensionFor } from './pdf-render.js';
 import { id as safeId, iri } from './standards/xml.js';
+import { playerStrings } from './i18n.js';
 
 const PLAYER_FILES = [
   { from: 'player/index.html', to: 'index.html' },
@@ -25,6 +27,11 @@ const PLAYER_FILES = [
 ];
 
 const GENERATOR = 'pdf-to-scorm-converter 1.0.0';
+
+// Where schemas land inside the package. Keeping them in a subfolder rather
+// than the root is the convention pipwerks documents, and keeps the root
+// readable.
+const SCHEMA_FOLDER = 'SCORM-schemas';
 
 // Images arrive already compressed; running DEFLATE over them costs time and
 // saves nothing, so only the text entries are deflated.
@@ -73,6 +80,7 @@ export async function buildPackage(render, settings, standardId) {
     activityIri: iri(settings.activityIri, identifier),
     masteryScore: settings.masteryScore,
     moveOn: settings.moveOn,
+    includeSchemas: Boolean(settings.includeSchemas) && Boolean(standard.schemaFiles),
   };
 
   // --- player ---
@@ -102,6 +110,9 @@ export async function buildPackage(render, settings, standardId) {
     title: course.title,
     language: course.language,
     pages,
+    // Resolved here rather than looked up in the player, so a package carries
+    // only the language its learners read.
+    ui: playerStrings(course.language),
     completion: {
       rule: settings.completionRule,
       threshold: settings.completionThreshold,
@@ -116,11 +127,24 @@ export async function buildPackage(render, settings, standardId) {
   }
   zip.file('content/pages.json', JSON.stringify(content, null, 2), DEFLATE);
 
+  // --- optional schema files ---
+  if (course.includeSchemas) {
+    for (const name of standard.schemaFiles) {
+      zip.file(
+        `${SCHEMA_FOLDER}/${name}`,
+        await asset(`schemas/${standard.schemaDir}/${name}`),
+        DEFLATE,
+      );
+    }
+  }
+
   // --- manifest ---
-  // SCORM requires every file in the package to be declared, so the list is
-  // gathered from the zip after the content is in place.
+  // SCORM requires every file making up the resource to be declared. The
+  // schemas are package-level metadata rather than part of the resource, so
+  // they are excluded -- which is also what the ADL reference packages do.
   const paths = Object.keys(zip.files)
     .filter((path) => !zip.files[path].dir)
+    .filter((path) => !path.startsWith(`${SCHEMA_FOLDER}/`))
     .sort();
 
   for (const file of standard.files(course, paths)) {
