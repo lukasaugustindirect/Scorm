@@ -239,19 +239,6 @@
     </div>
 
     <ul class="checks checks--tight">
-      <li id="schemas-row">
-        <label>
-          <input type="checkbox" id="include-schemas">
-          <span class="checks__name" data-i18n="images.schemas">
-            Include SCORM schema files
-          </span>
-          <span class="checks__note" data-i18n="images.schemasNote">
-            Ships the ADL/IMS .xsd files in the package and points xsi:schemaLocation at
-            them. Off by default: most LMSs ignore the hint and it adds about 50 kB per
-            package. Turn it on for an LMS that validates strictly on import.
-          </span>
-        </label>
-      </li>
       <li>
         <label>
           <input type="checkbox" id="extract-text" checked>
@@ -259,13 +246,32 @@
             Include page text for screen readers
           </span>
           <span class="checks__note" data-i18n="images.textNote">
-            Each page's text is placed in a visually hidden caption beside its image, so the
-            course is not an unreadable wall of pictures. It is not a selectable text layer
-            over the page.
+            Each page's text travels along invisibly, so someone using a screen reader can
+            read the course too. Best left on.
           </span>
         </label>
       </li>
     </ul>
+
+    <!-- Folded away: nobody should have to weigh this up to convert a PDF. It
+         only matters for the rare LMS that rejects the package outright. -->
+    <details class="advanced" id="schemas-row">
+      <summary data-i18n="images.advanced">Advanced</summary>
+      <ul class="checks checks--tight">
+        <li>
+          <label>
+            <input type="checkbox" id="include-schemas">
+            <span class="checks__name" data-i18n="images.schemas">
+              Include the schema files
+            </span>
+            <span class="checks__note" data-i18n="images.schemasNote">
+              Turn this on only if your LMS refuses the package with a complaint about
+              schemas. Most do not need it, and it makes every package about 50 kB bigger.
+            </span>
+          </label>
+        </li>
+      </ul>
+    </details>
   </section>
 
   <!-- ---------- build ---------- -->

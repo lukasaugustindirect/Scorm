@@ -231,6 +231,9 @@ async function main() {
     // paths need exercising: the conditional xsi:schemaLocation is only
     // correct if the files it points at are actually there.
     await mkdir(join(OUT, 'withschemas'), { recursive: true });
+    // The option lives in a folded "Advanced" section, so open it the way a
+    // person would rather than reaching past the UI.
+    await page.click('#schemas-row > summary');
     await page.check('#include-schemas');
     await page.click('#build');
     await page.waitForSelector('#results:not([hidden])', { timeout: 120000 });
@@ -247,6 +250,7 @@ async function main() {
     }
     console.log(`saved: ${schemaRows} packages with schema files`);
     await page.uncheck('#include-schemas');
+    await page.click('#schemas-row > summary');
 
     // Third pass in Czech, so the localisation is actually exercised: the
     // player's labels are resolved at build time and baked into the package,

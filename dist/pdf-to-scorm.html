@@ -201,6 +201,19 @@ input:focus-visible, select:focus-visible, button:focus-visible {
 .checks__name { font-weight: 500; font-size: .95rem; }
 .checks__note { font-size: .8rem; line-height: 1.5; color: var(--ink-soft); }
 
+.advanced { margin-top: 1rem; }
+.advanced[hidden] { display: none; }
+.advanced > summary {
+  font-size: .8rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+  cursor: pointer;
+  width: fit-content;
+}
+.advanced > summary:hover { color: var(--accent); }
+.advanced > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.advanced .checks--tight { margin-top: .625rem; }
+
 /* ---- build ---- */
 
 .card--action { display: grid; gap: 1rem; }
@@ -537,19 +550,6 @@ input:focus-visible, select:focus-visible, button:focus-visible {
     </div>
 
     <ul class="checks checks--tight">
-      <li id="schemas-row">
-        <label>
-          <input type="checkbox" id="include-schemas">
-          <span class="checks__name" data-i18n="images.schemas">
-            Include SCORM schema files
-          </span>
-          <span class="checks__note" data-i18n="images.schemasNote">
-            Ships the ADL/IMS .xsd files in the package and points xsi:schemaLocation at
-            them. Off by default: most LMSs ignore the hint and it adds about 50 kB per
-            package. Turn it on for an LMS that validates strictly on import.
-          </span>
-        </label>
-      </li>
       <li>
         <label>
           <input type="checkbox" id="extract-text" checked>
@@ -557,13 +557,31 @@ input:focus-visible, select:focus-visible, button:focus-visible {
             Include page text for screen readers
           </span>
           <span class="checks__note" data-i18n="images.textNote">
-            Each page's text is placed in a visually hidden caption beside its image, so the
-            course is not an unreadable wall of pictures. It is not a selectable text layer
-            over the page.
+            Each page's text travels along invisibly, so someone using a screen reader can
+            read the course too. Best left on.
           </span>
         </label>
       </li>
     </ul>
+
+    
+    <details class="advanced" id="schemas-row">
+      <summary data-i18n="images.advanced">Advanced</summary>
+      <ul class="checks checks--tight">
+        <li>
+          <label>
+            <input type="checkbox" id="include-schemas">
+            <span class="checks__name" data-i18n="images.schemas">
+              Include the schema files
+            </span>
+            <span class="checks__note" data-i18n="images.schemasNote">
+              Turn this on only if your LMS refuses the package with a complaint about
+              schemas. Most do not need it, and it makes every package about 50 kB bigger.
+            </span>
+          </label>
+        </li>
+      </ul>
+    </details>
   </section>
 
   
@@ -1113,12 +1131,12 @@ ${fileList}
       "course.descriptionPlaceholder": "Shown by some LMSs in the catalogue",
       "course.identifier": "Identifier",
       "course.identifierPlaceholder": "derived from the title",
-      "course.identifierHint": "Used as the manifest identifier and the zip filename.",
+      "course.identifierHint": "Used as the file name, and as the course identifier inside the LMS.",
       "course.language": "Course language",
       "course.languageHint": "Sets the language of the buttons and labels inside the course.",
-      "course.iri": "Activity IRI",
+      "course.iri": "Unique address of the course",
       "course.iriScope": "xAPI and cmi5 only",
-      "course.iriHint": "Must be globally unique and stable \u2014 it is how an LRS identifies this course forever. Left empty, a urn: is derived from the identifier, which works but is worth replacing with a real domain you control.",
+      "course.iriHint": "Must be unique and never change afterwards, because reports recognise the course by it. Use an address on a domain of your own, such as https://example.com/courses/gdpr. Left empty, a stand-in is generated: it works, but is worth replacing.",
       "standards.heading": "Standards to build",
       "standards.scorm12note": "Widest LMS support. Start here if unsure.",
       "standards.scorm2004note": "Separate completion and pass/fail, plus partial progress.",
@@ -1132,8 +1150,8 @@ ${fileList}
       "tracking.threshold": "Pages viewed (%)",
       "tracking.mastery": "Mastery score (%)",
       "tracking.masteryHint": "Set this only if the LMS needs a pass/fail rather than just complete. A page-turner has nothing to grade, so the score is the share of pages read.",
-      "tracking.perPage": "Record a statement per page (xAPI)",
-      "tracking.perPageNote": "One experienced statement the first time each page is opened.",
+      "tracking.perPage": "Track individual pages",
+      "tracking.perPageNote": "Reports will show which pages each person opened. xAPI only.",
       "images.heading": "Page images",
       "images.dpi": "Resolution (DPI)",
       "images.dpi96": "96 - smallest files",
@@ -1146,10 +1164,11 @@ ${fileList}
       "images.formatPng": "PNG - lossless, largest",
       "images.quality": "Quality",
       "images.qualityHint": "% \u2014 ignored for PNG.",
-      "images.schemas": "Include SCORM schema files",
-      "images.schemasNote": "Ships the ADL/IMS .xsd files in the package and points xsi:schemaLocation at them. Off by default: most LMSs ignore the hint and it adds about 50 kB per package. Turn it on for an LMS that validates strictly on import.",
+      "images.advanced": "Advanced",
+      "images.schemas": "Include the schema files",
+      "images.schemasNote": "Turn this on only if your LMS refuses the package with a complaint about schemas. Most do not need it, and it makes every package about 50 kB bigger.",
       "images.text": "Include page text for screen readers",
-      "images.textNote": "Each page's text is placed in a visually hidden caption beside its image, so the course is not an unreadable wall of pictures. It is not a selectable text layer over the page.",
+      "images.textNote": "Each page's text travels along invisibly, so someone using a screen reader can read the course too. Best left on.",
       "build.heading": "Build",
       "build.action": "Build packages",
       "build.reading": "Reading the PDF\u2026",
@@ -1185,12 +1204,12 @@ ${fileList}
       "course.descriptionPlaceholder": "N\u011Bkter\xE9 LMS jej zobrazuj\xED v katalogu",
       "course.identifier": "Identifik\xE1tor",
       "course.identifierPlaceholder": "odvozeno z n\xE1zvu",
-      "course.identifierHint": "Pou\u017Eije se jako identifik\xE1tor v manifestu a jako n\xE1zev ZIP souboru.",
+      "course.identifierHint": "Pou\u017Eije se jako n\xE1zev souboru a jako ozna\u010Den\xED kurzu uvnit\u0159 LMS.",
       "course.language": "Jazyk kurzu",
       "course.languageHint": "Ur\u010Duje jazyk tla\u010D\xEDtek a popisk\u016F uvnit\u0159 kurzu.",
-      "course.iri": "Activity IRI",
+      "course.iri": "Jednozna\u010Dn\xE1 adresa kurzu",
       "course.iriScope": "jen pro xAPI a cmi5",
-      "course.iriHint": "Mus\xED b\xFDt celosv\u011Btov\u011B jedine\u010Dn\xE9 a st\xE1l\xE9 \u2014 podle n\u011Bj LRS trvale identifikuje tento kurz. Nech\xE1te-li pole pr\xE1zdn\xE9, odvod\xED se urn: z identifik\xE1toru. To funguje, ale je vhodn\xE9 jej nahradit vlastn\xED dom\xE9nou.",
+      "course.iriHint": "Mus\xED b\xFDt jedine\u010Dn\xE1 a u\u017E se nikdy nem\u011Bn\xED, proto\u017Ee podle n\xED kurz pozn\xE1vaj\xED reporty. Pou\u017Eijte adresu na vlastn\xED dom\xE9n\u011B, t\u0159eba https://example.com/kurzy/gdpr. Kdy\u017E pole nech\xE1te pr\xE1zdn\xE9, vyrob\xED se n\xE1hradn\xED: funguje, ale je lep\u0161\xED ji nahradit.",
       "standards.heading": "Form\xE1ty k vytvo\u0159en\xED",
       "standards.scorm12note": "Nej\u0161ir\u0161\xED podpora v LMS. Pokud si nejste jist\xED, za\u010Dn\u011Bte t\xEDmto.",
       "standards.scorm2004note": "Odd\u011Bluje dokon\u010Den\xED a hodnocen\xED, um\xED i pr\u016Fb\u011B\u017En\xFD postup.",
@@ -1204,8 +1223,8 @@ ${fileList}
       "tracking.threshold": "Zobrazen\xE9 str\xE1nky (%)",
       "tracking.mastery": "Hranice \xFAsp\u011B\u0161nosti (%)",
       "tracking.masteryHint": "Nastavte jen tehdy, kdy\u017E LMS pot\u0159ebuje v\xFDsledek pro\u0161el/nepro\u0161el, a nikoli jen dokon\u010Den\xED. Prohl\xED\u017Een\xED dokumentu nen\xED z \u010Deho zn\xE1mkovat, sk\xF3re proto odpov\xEDd\xE1 pod\xEDlu p\u0159e\u010Dten\xFDch str\xE1nek.",
-      "tracking.perPage": "Zaznamenat v\xFDrok pro ka\u017Edou str\xE1nku (xAPI)",
-      "tracking.perPageNote": "Jeden v\xFDrok experienced p\u0159i prvn\xEDm otev\u0159en\xED ka\u017Ed\xE9 str\xE1nky.",
+      "tracking.perPage": "Sledovat jednotliv\xE9 str\xE1nky",
+      "tracking.perPageNote": "V reportech bude vid\u011Bt, kter\xE9 str\xE1nky si kdo otev\u0159el. Funguje jen u xAPI.",
       "images.heading": "Obr\xE1zky str\xE1nek",
       "images.dpi": "Rozli\u0161en\xED (DPI)",
       "images.dpi96": "96 - nejmen\u0161\xED soubory",
@@ -1218,10 +1237,11 @@ ${fileList}
       "images.formatPng": "PNG - bezeztr\xE1tov\xFD, nejv\u011Bt\u0161\xED",
       "images.quality": "Kvalita",
       "images.qualityHint": " % \u2014 u PNG se neuplatn\xED.",
-      "images.schemas": "P\u0159ilo\u017Eit sch\xE9mata SCORM",
-      "images.schemasNote": "Do bal\xED\u010Dku p\u0159ilo\u017E\xED soubory .xsd od ADL/IMS a nasm\u011Bruje na n\u011B xsi:schemaLocation. Ve v\xFDchoz\xEDm stavu vypnuto: v\u011Bt\u0161ina LMS tento \xFAdaj ignoruje a bal\xED\u010Dek se zv\u011Bt\u0161\xED asi o 50 kB. Zapn\u011Bte pro LMS, kter\xFD p\u0159i importu striktn\u011B validuje.",
+      "images.advanced": "Pokro\u010Dil\xE9",
+      "images.schemas": "P\u0159ilo\u017Eit soubory se sch\xE9maty",
+      "images.schemasNote": "Zapn\u011Bte jen tehdy, kdy\u017E v\xE1\u0161 LMS bal\xED\u010Dek odm\xEDtne s chybou o sch\xE9matech. V\u011Bt\u0161ina LMS to nepot\u0159ebuje a ka\u017Ed\xFD bal\xED\u010Dek se zv\u011Bt\u0161\xED asi o 50 kB.",
       "images.text": "P\u0159ilo\u017Eit text str\xE1nek pro \u010Dte\u010Dky obrazovky",
-      "images.textNote": "Text ka\u017Ed\xE9 str\xE1nky se vlo\u017E\xED do skryt\xE9ho popisku vedle obr\xE1zku, aby kurz nebyl jen ne\u010Ditelnou st\u011Bnou obr\xE1zk\u016F. Nejde o vyb\xEDratelnou textovou vrstvu nad str\xE1nkou.",
+      "images.textNote": "Text ka\u017Ed\xE9 str\xE1nky putuje s kurzem skryt\u011B, aby si ho mohl p\u0159e\u010D\xEDst i n\u011Bkdo, kdo pou\u017E\xEDv\xE1 \u010Dte\u010Dku obrazovky. Doporu\u010Dujeme nechat zapnut\xE9.",
       "build.heading": "Vytvo\u0159en\xED",
       "build.action": "Vytvo\u0159it bal\xED\u010Dky",
       "build.reading": "\u010Cten\xED PDF\u2026",

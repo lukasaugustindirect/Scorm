@@ -99,14 +99,16 @@ export const UI_STRINGS = {
     'course.descriptionPlaceholder': 'Shown by some LMSs in the catalogue',
     'course.identifier': 'Identifier',
     'course.identifierPlaceholder': 'derived from the title',
-    'course.identifierHint': 'Used as the manifest identifier and the zip filename.',
+    'course.identifierHint': 'Used as the file name, and as the course identifier '
+      + 'inside the LMS.',
     'course.language': 'Course language',
     'course.languageHint': 'Sets the language of the buttons and labels inside the course.',
-    'course.iri': 'Activity IRI',
+    'course.iri': 'Unique address of the course',
     'course.iriScope': 'xAPI and cmi5 only',
-    'course.iriHint': 'Must be globally unique and stable — it is how an LRS identifies this ' +
-      'course forever. Left empty, a urn: is derived from the identifier, which works but is ' +
-      'worth replacing with a real domain you control.',
+    'course.iriHint': 'Must be unique and never change afterwards, because reports ' +
+      'recognise the course by it. Use an address on a domain of your own, such as ' +
+      'https://example.com/courses/gdpr. Left empty, a stand-in is generated: it works, ' +
+      'but is worth replacing.',
 
     'standards.heading': 'Standards to build',
     'standards.scorm12note': 'Widest LMS support. Start here if unsure.',
@@ -123,8 +125,9 @@ export const UI_STRINGS = {
     'tracking.mastery': 'Mastery score (%)',
     'tracking.masteryHint': 'Set this only if the LMS needs a pass/fail rather than just ' +
       'complete. A page-turner has nothing to grade, so the score is the share of pages read.',
-    'tracking.perPage': 'Record a statement per page (xAPI)',
-    'tracking.perPageNote': 'One experienced statement the first time each page is opened.',
+    'tracking.perPage': 'Track individual pages',
+    'tracking.perPageNote': 'Reports will show which pages each person opened. '
+      + 'xAPI only.',
 
     'images.heading': 'Page images',
     'images.dpi': 'Resolution (DPI)',
@@ -138,14 +141,14 @@ export const UI_STRINGS = {
     'images.formatPng': 'PNG - lossless, largest',
     'images.quality': 'Quality',
     'images.qualityHint': '% — ignored for PNG.',
-    'images.schemas': 'Include SCORM schema files',
-    'images.schemasNote': 'Ships the ADL/IMS .xsd files in the package and points ' +
-      'xsi:schemaLocation at them. Off by default: most LMSs ignore the hint and it adds ' +
-      'about 50 kB per package. Turn it on for an LMS that validates strictly on import.',
+    'images.advanced': 'Advanced',
+    'images.schemas': 'Include the schema files',
+    'images.schemasNote': 'Turn this on only if your LMS refuses the package with a ' +
+      'complaint about schemas. Most do not need it, and it makes every package about ' +
+      '50 kB bigger.',
     'images.text': 'Include page text for screen readers',
-    'images.textNote': "Each page's text is placed in a visually hidden caption beside its " +
-      'image, so the course is not an unreadable wall of pictures. It is not a selectable ' +
-      'text layer over the page.',
+    'images.textNote': "Each page's text travels along invisibly, so someone using a " +
+      'screen reader can read the course too. Best left on.',
 
     'build.heading': 'Build',
     'build.action': 'Build packages',
@@ -188,14 +191,16 @@ export const UI_STRINGS = {
     'course.descriptionPlaceholder': 'Některé LMS jej zobrazují v katalogu',
     'course.identifier': 'Identifikátor',
     'course.identifierPlaceholder': 'odvozeno z názvu',
-    'course.identifierHint': 'Použije se jako identifikátor v manifestu a jako název ZIP souboru.',
+    'course.identifierHint': 'Použije se jako název souboru a jako označení kurzu '
+      + 'uvnitř LMS.',
     'course.language': 'Jazyk kurzu',
     'course.languageHint': 'Určuje jazyk tlačítek a popisků uvnitř kurzu.',
-    'course.iri': 'Activity IRI',
+    'course.iri': 'Jednoznačná adresa kurzu',
     'course.iriScope': 'jen pro xAPI a cmi5',
-    'course.iriHint': 'Musí být celosvětově jedinečné a stálé — podle něj LRS trvale ' +
-      'identifikuje tento kurz. Necháte-li pole prázdné, odvodí se urn: z identifikátoru. ' +
-      'To funguje, ale je vhodné jej nahradit vlastní doménou.',
+    'course.iriHint': 'Musí být jedinečná a už se nikdy nemění, protože podle ní kurz ' +
+      'poznávají reporty. Použijte adresu na vlastní doméně, třeba ' +
+      'https://example.com/kurzy/gdpr. Když pole necháte prázdné, vyrobí se náhradní: ' +
+      'funguje, ale je lepší ji nahradit.',
 
     'standards.heading': 'Formáty k vytvoření',
     'standards.scorm12note': 'Nejširší podpora v LMS. Pokud si nejste jistí, začněte tímto.',
@@ -213,8 +218,9 @@ export const UI_STRINGS = {
     'tracking.masteryHint': 'Nastavte jen tehdy, když LMS potřebuje výsledek prošel/neprošel, ' +
       'a nikoli jen dokončení. Prohlížení dokumentu není z čeho známkovat, skóre proto ' +
       'odpovídá podílu přečtených stránek.',
-    'tracking.perPage': 'Zaznamenat výrok pro každou stránku (xAPI)',
-    'tracking.perPageNote': 'Jeden výrok experienced při prvním otevření každé stránky.',
+    'tracking.perPage': 'Sledovat jednotlivé stránky',
+    'tracking.perPageNote': 'V reportech bude vidět, které stránky si kdo otevřel. '
+      + 'Funguje jen u xAPI.',
 
     'images.heading': 'Obrázky stránek',
     'images.dpi': 'Rozlišení (DPI)',
@@ -228,14 +234,13 @@ export const UI_STRINGS = {
     'images.formatPng': 'PNG - bezeztrátový, největší',
     'images.quality': 'Kvalita',
     'images.qualityHint': ' % — u PNG se neuplatní.',
-    'images.schemas': 'Přiložit schémata SCORM',
-    'images.schemasNote': 'Do balíčku přiloží soubory .xsd od ADL/IMS a nasměruje na ně ' +
-      'xsi:schemaLocation. Ve výchozím stavu vypnuto: většina LMS tento údaj ignoruje a ' +
-      'balíček se zvětší asi o 50 kB. Zapněte pro LMS, který při importu striktně validuje.',
+    'images.advanced': 'Pokročilé',
+    'images.schemas': 'Přiložit soubory se schématy',
+    'images.schemasNote': 'Zapněte jen tehdy, když váš LMS balíček odmítne s chybou ' +
+      'o schématech. Většina LMS to nepotřebuje a každý balíček se zvětší asi o 50 kB.',
     'images.text': 'Přiložit text stránek pro čtečky obrazovky',
-    'images.textNote': 'Text každé stránky se vloží do skrytého popisku vedle obrázku, aby ' +
-      'kurz nebyl jen nečitelnou stěnou obrázků. Nejde o vybíratelnou textovou vrstvu ' +
-      'nad stránkou.',
+    'images.textNote': 'Text každé stránky putuje s kurzem skrytě, aby si ho mohl ' +
+      'přečíst i někdo, kdo používá čtečku obrazovky. Doporučujeme nechat zapnuté.',
 
     'build.heading': 'Vytvoření',
     'build.action': 'Vytvořit balíčky',
