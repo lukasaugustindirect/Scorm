@@ -10,11 +10,13 @@
 import { spawn, execSync } from 'node:child_process';
 import { createServer } from 'node:net';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { makePdf } from './fixture.mjs';
 import { testPlayer } from './player.mjs';
 import { testStatements } from './statements.mjs';
+import { testSingleFile } from './single.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -24,21 +26,66 @@ const FIXTURE_PAGES = 3;
 const FIXTURE_TITLE = 'Fixture Document';
 const STANDARDS = ['scorm12', 'scorm2004', 'xapi', 'cmi5'];
 
-async function loadPlaywright() {
-  let mod;
+/**
+ * Every Playwright this machine offers, most local first.
+ *
+ * There can be more than one, and they need not agree: a local install pulled
+ * in by `npm install` expects the browser build of its own release, while a
+ * pre-provisioned environment may carry a different one globally. Rather than
+ * pick and hope, collect them all and let launch() find a working pair.
+ */
+async function loadPlaywrights() {
+  const found = [];
+  const add = (mod) => {
+    // Playwright is CommonJS, so importing it by path yields a namespace whose
+    // only member is `default`; an ESM-aware resolution exposes it directly.
+    const api = mod && (mod.chromium ? mod : mod.default);
+    if (api && api.chromium) found.push(api);
+  };
+
   try {
-    mod = await import('playwright');
-  } catch {
-    // Falls back to a global install, which is how this environment has it.
+    add(await import('playwright'));
+  } catch { /* no local install */ }
+
+  try {
     const root = execSync('npm root -g', { encoding: 'utf8' }).trim();
-    mod = await import(pathToFileURL(join(root, 'playwright', 'index.js')).href);
+    add(await import(pathToFileURL(join(root, 'playwright', 'index.js')).href));
+  } catch { /* no global install */ }
+
+  if (!found.length) throw new Error('Playwright is not installed');
+  return found;
+}
+
+/**
+ * Chromium binaries actually present, whatever build number they carry.
+ * Playwright stores them as chromium-<build>/, and that number tracks the
+ * Playwright release rather than anything we control, so this looks instead of
+ * assuming a path.
+ */
+function installedChromium() {
+  const base = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  if (!base) return [];
+
+  const layouts = [
+    join('chrome-linux', 'chrome'),
+    join('chrome-headless-shell-linux64', 'chrome-headless-shell'),
+    join('Chromium.app', 'Contents', 'MacOS', 'Chromium'),
+  ];
+
+  const found = [];
+  let entries = [];
+  try {
+    entries = readdirSync(base);
+  } catch {
+    return [];
   }
-  // Playwright is CommonJS, so importing it by path yields a namespace whose
-  // only member is `default`; a local ESM-aware resolution exposes the browser
-  // types directly.
-  const api = mod.chromium ? mod : mod.default;
-  if (!api || !api.chromium) throw new Error('could not load Playwright');
-  return api;
+  for (const entry of entries) {
+    for (const layout of layouts) {
+      const candidate = join(base, entry, layout);
+      if (existsSync(candidate)) found.push(candidate);
+    }
+  }
+  return found;
 }
 
 function freePort() {
@@ -69,15 +116,27 @@ function startServer(port) {
   });
 }
 
-async function launch(playwright) {
-  try {
-    return await playwright.chromium.launch();
-  } catch (err) {
-    // The bundled Chromium build number need not match this Playwright
-    // release; point it at the one that is actually installed.
-    process.stderr.write(`default launch failed (${err.message}); trying explicit path\n`);
-    return playwright.chromium.launch({ executablePath: '/opt/pw-browsers/chromium/chrome-linux/chrome' });
+/** Tries each Playwright against its own browser, then the installed ones. */
+async function launch(playwrights) {
+  const executables = installedChromium();
+  const failures = [];
+
+  for (const playwright of playwrights) {
+    for (const executablePath of [undefined, ...executables]) {
+      try {
+        return await playwright.chromium.launch(
+          executablePath ? { executablePath } : {},
+        );
+      } catch (err) {
+        failures.push(`${executablePath || 'bundled'}: ${err.message.split('\n')[0]}`);
+      }
+    }
   }
+
+  throw new Error(
+    'could not launch Chromium. Tried:\n  ' + failures.join('\n  ') +
+    '\nIf Playwright was just installed, run: npx playwright install chromium',
+  );
 }
 
 async function main() {
@@ -88,10 +147,10 @@ async function main() {
   await writeFile(pdfPath, makePdf({ pages: FIXTURE_PAGES, title: FIXTURE_TITLE }));
   console.log(`fixture: ${FIXTURE_PAGES}-page PDF written`);
 
-  const playwright = await loadPlaywright();
+  const playwrights = await loadPlaywrights();
   const port = await freePort();
   const server = await startServer(port);
-  const browser = await launch(playwright);
+  const browser = await launch(playwrights);
 
   const problems = [];
 
@@ -109,6 +168,9 @@ async function main() {
       // The browser still logs it, so it must not be mistaken for a fault.
       const from = msg.location()?.url || '';
       if (/\/_lrs\/activities\/state/.test(from)) return;
+      // Browsers probe /favicon.ico on any page that declares no icon, and the
+      // generated harness scaffolding never will. Not a product signal.
+      if (/\/favicon\.ico$/.test(from)) return;
       problems.push(`console error: ${msg.text()} (${from})`);
     });
 
@@ -223,6 +285,9 @@ async function main() {
       // xAPI and cmi5 have no API object to mock, so they are driven through
       // the harness against the stub LRS instead.
       problems.push(...await testStatements(page, OUT, ROOT, base, FIXTURE_PAGES));
+      // The single-file variant needs its own context: it must be opened as a
+      // real file:// document, not served.
+      problems.push(...await testSingleFile(browser, OUT, ROOT, pdfPath, FIXTURE_PAGES));
     }
   } finally {
     await browser.close();

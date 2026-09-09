@@ -468,6 +468,45 @@ def verify_czech(out, page_count):
                       desc.get("lang") if desc is not None else "absent")
 
 
+MANIFEST_FOR = {
+    "scorm12": "imsmanifest.xml",
+    "scorm2004": "imsmanifest.xml",
+    "cmi5": "cmi5.xml",
+    "xapi": "tincan.xml",
+}
+
+
+def verify_package(path, page_count, label=""):
+    """Runs every check on one built zip."""
+    standard = next((s for s in VERIFIERS if path.stem.endswith(s)), None)
+    suffix = f", {label}" if label else ""
+    print(f"\n{path.name}  ({standard or 'unknown standard'}{suffix})")
+    if standard is None:
+        check(False, f"{path.name}: filename identifies a known standard")
+        return
+
+    with zipfile.ZipFile(path) as zf:
+        bad = zf.testzip()
+        check(bad is None, f"{standard}: archive is intact", str(bad))
+        names = verify_common(zf, standard, page_count)
+        VERIFIERS[standard](zf, names, page_count)
+        validate_against_schema(zf, MANIFEST_FOR[standard], standard)
+
+
+def verify_single_file(out, page_count):
+    """The same checks against packages built by the single-file variant.
+
+    It reaches into the app's internals -- a bundled build, a shimmed pdf.js,
+    embedded assets -- so its output has to be proven identical, not assumed.
+    """
+    folder = out / "single"
+    if not folder.is_dir():
+        return
+    print("\n--- packages built by the single-file variant (from file://) ---")
+    for path in sorted(folder.glob("*.zip")):
+        verify_package(path, page_count, label="single file")
+
+
 def main():
     out = Path(sys.argv[1])
     page_count = int(sys.argv[2])
@@ -478,24 +517,11 @@ def main():
         return 1
 
     for path in zips:
-        standard = next((s for s in VERIFIERS if path.stem.endswith(s)), None)
-        print(f"\n{path.name}  ({standard or 'unknown standard'})")
-        if standard is None:
-            check(False, f"{path.name}: filename identifies a known standard")
-            continue
-
-        with zipfile.ZipFile(path) as zf:
-            bad = zf.testzip()
-            check(bad is None, f"{standard}: archive is intact", str(bad))
-            names = verify_common(zf, standard, page_count)
-            VERIFIERS[standard](zf, names, page_count)
-
-            manifest = {"scorm12": "imsmanifest.xml", "scorm2004": "imsmanifest.xml",
-                        "cmi5": "cmi5.xml", "xapi": "tincan.xml"}[standard]
-            validate_against_schema(zf, manifest, standard)
+        verify_package(path, page_count)
 
     verify_with_schemas(out, page_count)
     verify_czech(out, page_count)
+    verify_single_file(out, page_count)
 
     missing = set(VERIFIERS) - {
         s for p in zips for s in VERIFIERS if p.stem.endswith(s)

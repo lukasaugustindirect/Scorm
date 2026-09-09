@@ -41,6 +41,11 @@ const DEFLATE = { compression: 'DEFLATE', compressionOptions: { level: 6 } };
 const playerCache = new Map();
 
 async function asset(path) {
+  // The single-file build embeds these, because a file:// page cannot fetch a
+  // sibling file. Served normally, they are fetched as usual.
+  const embedded = (typeof window !== 'undefined' && window.__EMBEDDED_ASSETS) || null;
+  if (embedded && path in embedded) return embedded[path];
+
   if (!playerCache.has(path)) {
     const response = await fetch(path, { cache: 'no-store' });
     if (!response.ok) throw new Error(`Could not read ${path} (HTTP ${response.status})`);

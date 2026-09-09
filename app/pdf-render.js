@@ -7,9 +7,20 @@
 
 import * as pdfjs from '../vendor/pdf.min.mjs';
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL('../vendor/pdf.worker.min.mjs', import.meta.url).href;
+// Both of these are overridable so the single-file build can supply its own.
+// That build runs from file://, where a page may start a classic Web Worker but
+// not a module one and cannot fetch a sibling file at all, so it hands over a
+// Blob URL for the worker and has no directory to serve font data from.
+// Assignments are short-circuited, never evaluated, when an override is present:
+// import.meta.url does not exist in the bundled classic script.
+const OVERRIDES = (typeof window !== 'undefined' && window.__PDF_OVERRIDES) || {};
 
-const STANDARD_FONTS = new URL('../vendor/standard_fonts/', import.meta.url).href;
+pdfjs.GlobalWorkerOptions.workerSrc = OVERRIDES.workerSrc
+  || new URL('../vendor/pdf.worker.min.mjs', import.meta.url).href;
+
+const STANDARD_FONTS = 'standardFontDataUrl' in OVERRIDES
+  ? OVERRIDES.standardFontDataUrl
+  : new URL('../vendor/standard_fonts/', import.meta.url).href;
 
 // pdf.js reports page geometry in points at 72 dpi, so scale = dpi / 72.
 const POINTS_PER_INCH = 72;
@@ -23,7 +34,7 @@ const POINTS_PER_INCH = 72;
 export async function peek(bytes) {
   const task = pdfjs.getDocument({
     data: bytes,
-    standardFontDataUrl: STANDARD_FONTS,
+    standardFontDataUrl: STANDARD_FONTS || undefined,
     isEvalSupported: false,
   });
   const doc = await task.promise;
@@ -64,7 +75,7 @@ export async function renderPdf(bytes, options, onProgress = () => {}) {
 
   const task = pdfjs.getDocument({
     data: bytes,
-    standardFontDataUrl: STANDARD_FONTS,
+    standardFontDataUrl: STANDARD_FONTS || undefined,
     // Rendering is the only thing we need; skip the interactive-form machinery
     // so a PDF with AcroForm widgets cannot execute its embedded JavaScript.
     isEvalSupported: false,

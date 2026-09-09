@@ -3,3 +3,5 @@ test/output/
 *.log
 .DS_Store
 packages/
+dist/*
+!dist/pdf-to-scorm.html

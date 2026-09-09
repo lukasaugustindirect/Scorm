@@ -19,11 +19,35 @@ zipped by `JSZip` in the tab. It is never uploaded anywhere, and the converter
 makes no network calls at all — which is the point if the document is not
 something you may hand to a third-party service.
 
-## Using it
+## Just want to use it
 
-pdf.js parses in a Web Worker, and browsers refuse to start a worker from a
-`file://` origin, so the page has to be served over HTTP. Any static host will
-do; `npm start` exists so you need not install anything:
+Download **[`dist/pdf-to-scorm.html`](dist/pdf-to-scorm.html)** and open it by
+double-click. That one file is the whole converter: no server, no Node, no
+install, no internet. It can be emailed as a single attachment, which is the
+easiest way to hand it to a colleague.
+
+Rebuild it after changing anything under `app/` or `player/`:
+
+```sh
+npm run build:single
+```
+
+Getting one file to work from `file://` takes some doing, since such a page
+cannot load ES modules, cannot start a *module* Worker and cannot fetch a
+sibling file. So the app is bundled into one classic script, pdf.js 3.11.174
+(the last release with a non-module worker) is started from a Blob URL, and the
+player, adapters and schemas ride along as embedded strings. Downloads *do*
+work from `file://`, which is what makes the whole approach viable — the test
+suite asserts every one of those points rather than trusting them.
+
+The served version below uses the modern pdf.js and is what you want on an
+internal web server, where it is just a URL for everyone.
+
+## Running it as a site
+
+pdf.js parses in a Web Worker, and browsers refuse to start a *module* worker
+from a `file://` origin, so the served page has to come over HTTP. Any static
+host will do; `npm start` exists so you need not install anything:
 
 ```sh
 npm start            # converter at http://localhost:8080
@@ -197,16 +221,21 @@ A real end-to-end run, not unit tests around mocks. It:
    activities, the session id carried through from `contextTemplate`, UUID
    statement ids, one statement per page, and that Browse mode records nothing
    but the bare session,
-5. inspects every zip (`test/verify.py`): **validates each manifest against the
+5. builds the **single-file variant** and drives it as a real `file://`
+   document, proving the Blob worker starts, all four standards build, and a
+   download still reaches the user with no server at all,
+6. inspects every zip (`test/verify.py`): **validates each manifest against the
    real ADL and cmi5 schemas with `xmllint`**, then checks namespaces, schema
    versions, `scormtype` casing, that every packaged file is declared in
    `<file>` elements, that the declared entry point exists, that the shipped
-   adapter is the right one, and that the Czech build really is Czech.
+   adapter is the right one, that the Czech build really is Czech, and that the
+   single-file variant's packages are identical in every respect.
 
-Current state: **219 assertions, all passing** (58 run-time, 161 structural).
+Current state: **349 assertions, all passing** (65 run-time, 284 structural).
 
-Step 5 needs `xmllint`; without it the schema checks are skipped loudly rather
-than passing quietly. Everything else needs only Node.
+Step 6 needs `xmllint`; without it the schema checks are skipped loudly rather
+than passing quietly. Everything else needs only Node and, for the build, the
+one devDependency `esbuild`.
 
 ## Known limitations
 
