@@ -13,6 +13,30 @@ function escapeText(value) {
 }
 
 /**
+ * A text string for a PDF dictionary.
+ *
+ * A parenthesised literal can only carry PDFDocEncoding, and this file
+ * serialises as latin1 -- so a Czech 'c with caron' (U+010D) would be written
+ * as its low byte 0x0D, a carriage return inside the string, and the character
+ * would simply vanish. Real producers write anything beyond ASCII as a UTF-16BE
+ * hex string led by a byte-order mark, which is what pdf.js reads back, so that
+ * is what this does.
+ */
+function pdfString(value) {
+  const text = String(value);
+  if (!/[^\x20-\x7e]/.test(text)) return `(${escapeText(text)})`;
+
+  // Node writes UTF-16 little-endian, so the bytes of each unit are swapped
+  // into big-endian order on the way out.
+  const le = Buffer.from(text, 'utf16le');
+  let hex = 'feff';
+  for (let i = 0; i < le.length; i += 2) {
+    hex += le[i + 1].toString(16).padStart(2, '0') + le[i].toString(16).padStart(2, '0');
+  }
+  return `<${hex}>`;
+}
+
+/**
  * @param {object} options
  * @param {number} options.pages  how many pages to emit
  * @param {string} options.title  written into the document Info dictionary
@@ -51,7 +75,7 @@ export function makePdf({ pages = 3, title = 'Fixture Document' } = {}) {
       `stream\n${stream}\nendstream`;
   }
 
-  objects[infoObjNum] = `<< /Title (${escapeText(title)}) /Author (Test Fixture) >>`;
+  objects[infoObjNum] = `<< /Title ${pdfString(title)} /Author (Test Fixture) >>`;
 
   // --- serialise, recording where each object starts ---
   const chunks = [];

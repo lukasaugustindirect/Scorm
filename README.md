@@ -110,6 +110,11 @@ persistence. It should never face a network.
 
 ## Options worth understanding
 
+You do not have to read any of this to use the tool. Drop a PDF, press the
+button, and all four packages are built with defaults that work; the options
+below sit behind the folded **Nastavení / Settings** panel for the cases where
+the defaults are not what you want.
+
 **Completion.** Default is "every page viewed". You can instead require a
 percentage of pages, or mark complete the moment the course opens. Whichever
 you pick is enforced by the player, not the LMS.
@@ -228,10 +233,12 @@ A real end-to-end run, not unit tests around mocks. It:
    real ADL and cmi5 schemas with `xmllint`**, then checks namespaces, schema
    versions, `scormtype` casing, that every packaged file is declared in
    `<file>` elements, that the declared entry point exists, that the shipped
-   adapter is the right one, that the Czech build really is Czech, and that the
-   single-file variant's packages are identical in every respect.
+   adapter is the right one, that the Czech build really is Czech, that a course
+   title with diacritics survives the whole path from the PDF's Info dictionary
+   into the manifest XML, and that the single-file variant's packages are
+   identical in every respect.
 
-Current state: **349 assertions, all passing** (65 run-time, 284 structural).
+Current state: **358 assertions, all passing** (66 run-time, 292 structural).
 
 Step 6 needs `xmllint`; without it the schema checks are skipped loudly rather
 than passing quietly. Everything else needs only Node and, for the build, the

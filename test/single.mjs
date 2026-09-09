@@ -86,7 +86,14 @@ export async function testSingleFile(browser, outDir, repoRoot, pdfPath, pageCou
            'pdf.js parsed the file with a Blob worker', meta.trim());
 
     // Same options the served-app stage uses, so verify.py's expectations hold
-    // for these packages too.
+    // for these packages too -- which means opening the settings disclosure
+    // first, exactly as on the served page.
+    const closed = await page.evaluate(
+      () => !document.querySelector('details.settings').open,
+    );
+    expect(closed, 'settings stay folded away in the single file');
+    await page.click('summary.settings__summary');
+
     await page.fill('#identifier', 'fixture-course');
     await page.fill('#activity-iri', 'https://example.com/courses/fixture');
     await page.fill('#mastery', '80');

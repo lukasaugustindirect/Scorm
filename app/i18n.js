@@ -78,11 +78,14 @@ export const PLAYER_STRINGS = {
 export const UI_STRINGS = {
   en: {
     'app.title': 'PDF to SCORM',
-    'app.tagline': 'Turn a PDF into a SCORM 1.2, SCORM 2004, xAPI or cmi5 course. ' +
-      'Everything runs in this browser tab — the file is never uploaded.',
     'app.language': 'Interface language',
 
-    'source.heading': 'Choose a PDF',
+    'hero.title': 'Turn a PDF into an e-learning course',
+    'hero.sub': 'You get SCORM 1.2, SCORM 2004, xAPI and cmi5 at once — download whichever '
+      + 'one your LMS wants. Everything runs here in the browser; the file is never uploaded.',
+    'settings.heading': 'Settings',
+    'settings.note': 'optional',
+    'course.fallbackTitle': 'Course',
     'source.drop': 'Drop a PDF here, or click to browse',
     'source.hint': 'Nothing leaves your computer.',
     'source.reading': 'reading…',
@@ -149,8 +152,6 @@ export const UI_STRINGS = {
     'images.text': 'Include page text for screen readers',
     'images.textNote': "Each page's text travels along invisibly, so someone using a " +
       'screen reader can read the course too. Best left on.',
-
-    'build.heading': 'Build',
     'build.action': 'Build packages',
     'build.reading': 'Reading the PDF…',
     'build.rendering': 'Rendering page {done} of {total}…',
@@ -170,11 +171,14 @@ export const UI_STRINGS = {
   },
   cs: {
     'app.title': 'PDF do SCORM',
-    'app.tagline': 'Převeďte PDF na kurz ve formátu SCORM 1.2, SCORM 2004, xAPI nebo cmi5. ' +
-      'Vše běží v tomto okně prohlížeče — soubor se nikam neodesílá.',
     'app.language': 'Jazyk rozhraní',
 
-    'source.heading': 'Vyberte PDF',
+    'hero.title': 'Udělejte z PDF e-learningový kurz',
+    'hero.sub': 'Vznikne SCORM 1.2, SCORM 2004, xAPI i cmi5 zároveň — stáhnete si ten, který '
+      + 'váš LMS chce. Vše běží tady v prohlížeči, soubor se nikam neodesílá.',
+    'settings.heading': 'Nastavení',
+    'settings.note': 'nepovinné',
+    'course.fallbackTitle': 'Kurz',
     'source.drop': 'Přetáhněte sem PDF nebo klikněte pro výběr',
     'source.hint': 'Nic neopustí váš počítač.',
     'source.reading': 'čtení…',
@@ -241,8 +245,6 @@ export const UI_STRINGS = {
     'images.text': 'Přiložit text stránek pro čtečky obrazovky',
     'images.textNote': 'Text každé stránky putuje s kurzem skrytě, aby si ho mohl ' +
       'přečíst i někdo, kdo používá čtečku obrazovky. Doporučujeme nechat zapnuté.',
-
-    'build.heading': 'Vytvoření',
     'build.action': 'Vytvořit balíčky',
     'build.reading': 'Čtení PDF…',
     'build.rendering': 'Vykreslování stránky {done} z {total}…',

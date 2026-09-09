@@ -237,7 +237,7 @@ function settings() {
   const parsedMastery = masteryPercent === '' ? null : Number(masteryPercent);
 
   return {
-    title: ui.title.value.trim() || t('build.heading'),
+    title: ui.title.value.trim() || t('course.fallbackTitle'),
     description: ui.description.value.trim(),
     identifier: ui.identifier.value.trim(),
     language: ui.language.value,

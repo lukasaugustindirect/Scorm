@@ -41,6 +41,11 @@ CMI5 = "https://w3id.org/xapi/profiles/cmi5/v1/CourseStructure.xsd"
 
 ACTIVITY_IRI = "https://example.com/courses/fixture"
 MASTERY_PERCENT = 80
+# Mirrors FIXTURE_TITLE in run.mjs. Carries diacritics deliberately: the title
+# travels from the PDF's Info dictionary through the UI into manifest XML, and
+# a mangled byte anywhere on that path shows up here.
+COURSE_TITLE = "Bezpečnost práce 2026"
+
 
 COMMON_FILES = ["index.html", "player.css", "player.js", "lms-adapter.js",
                 "content/pages.json"]
@@ -197,6 +202,13 @@ def verify_scorm12(zf, names, page_count):
     check(item is not None and item.findtext(q(ADLCP12, "masteryscore")) == str(MASTERY_PERCENT),
           f"scorm12: adlcp:masteryscore is {MASTERY_PERCENT} (0-100 scale)")
 
+    org = root.find(f"{q(CP12, 'organizations')}/{q(CP12, 'organization')}")
+    titles = [org.findtext(q(CP12, "title")) if org is not None else None,
+              item.findtext(q(CP12, "title")) if item is not None else None]
+    check(all(t == COURSE_TITLE for t in titles),
+          "scorm12: the course title kept its diacritics",
+          repr(titles))
+
 
 def verify_scorm2004(zf, names, page_count):
     root = parse(zf, "imsmanifest.xml", "scorm2004")
@@ -228,6 +240,13 @@ def verify_scorm2004(zf, names, page_count):
     check(packaged.issubset(declared),
           "scorm2004: every packaged file is declared in <file> elements",
           f"undeclared: {sorted(packaged - declared)[:5]}")
+
+    org = root.find(f"{q(CP2004, 'organizations')}/{q(CP2004, 'organization')}")
+    item2004 = org.find(q(CP2004, "item")) if org is not None else None
+    titles = [org.findtext(q(CP2004, "title")) if org is not None else None,
+              item2004.findtext(q(CP2004, "title")) if item2004 is not None else None]
+    check(all(t == COURSE_TITLE for t in titles),
+          "scorm2004: the course title kept its diacritics", repr(titles))
 
     measure = root.find(
         f"{q(CP2004, 'organizations')}/{q(CP2004, 'organization')}/{q(CP2004, 'item')}/"
@@ -266,6 +285,9 @@ def verify_xapi(zf, names, page_count):
     check(name is not None and "lang" not in name.attrib,
           "xapi: <name> carries no lang attribute, matching the reference files",
           str(name.attrib) if name is not None else "absent")
+    check(name is not None and name.text == COURSE_TITLE,
+          "xapi: the course title kept its diacritics",
+          repr(name.text) if name is not None else "absent")
     desc = activity.find(q(TINCAN, "description"))
     check(desc is not None and desc.get("lang"),
           "xapi: <description> is language-tagged")
@@ -298,6 +320,14 @@ def verify_cmi5(zf, names, page_count):
 
     check(au.get("id") and au.get("id") != ACTIVITY_IRI,
           "cmi5: au id is distinct from the course id", str(au.get("id")))
+
+    titles = [
+        t.findtext(q(CMI5, "langstring"))
+        for parent in (course, au) if parent is not None
+        for t in parent.findall(q(CMI5, "title"))
+    ]
+    check(titles and all(t == COURSE_TITLE for t in titles),
+          "cmi5: the course title kept its diacritics", repr(titles))
     check(au.get("moveOn") in
           {"NotApplicable", "Passed", "Completed", "CompletedAndPassed", "CompletedOrPassed"},
           "cmi5: moveOn is one of the five allowed values", str(au.get("moveOn")))

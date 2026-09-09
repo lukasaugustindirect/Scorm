@@ -1,286 +1,42 @@
 <!doctype html>
-<html lang="en">
+<html lang="cs">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%231f6feb'/%3E%3Cpath d='M4 3h5l3 3v7H4z' fill='%23fff'/%3E%3Cpath d='M9 3v3h3z' fill='%23a8c7fa'/%3E%3C/svg%3E">
-<title>PDF to SCORM Converter</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='4' fill='%23f59e0b'/%3E%3Cpath d='M4 3h5l3 3v7H4z' fill='%23fff'/%3E%3Cpath d='M9 3v3h3z' fill='%23fde68a'/%3E%3C/svg%3E">
+<title>PDF do SCORM</title>
 <link rel="stylesheet" href="app/app.css">
 </head>
 <body>
-<!-- Text carrying data-i18n is replaced at runtime from app/i18n.js. The
-     English in the markup is the fallback if the script fails to load. -->
+<!-- Text carrying data-i18n is replaced at runtime from app/i18n.js. -->
 
-<header class="masthead">
-  <div class="masthead__row">
-    <h1 data-i18n="app.title">PDF to SCORM</h1>
-    <p class="field field--lang">
-      <label class="sr-only" for="ui-language" data-i18n="app.language">Interface language</label>
-      <select id="ui-language"></select>
-    </p>
-  </div>
-  <p class="masthead__sub" data-i18n="app.tagline">
-    Turn a PDF into a SCORM 1.2, SCORM 2004, xAPI or cmi5 course.
-    Everything runs in this browser tab &mdash; the file is never uploaded.
-  </p>
+<header class="topbar">
+  <span class="wordmark" data-i18n="app.title">PDF do SCORM</span>
+  <label class="sr-only" for="ui-language" data-i18n="app.language">Jazyk rozhraní</label>
+  <select id="ui-language" class="lang"></select>
 </header>
 
 <main class="layout">
 
-  <!-- ---------- 1. the PDF ---------- -->
-  <section class="card" aria-labelledby="h-source">
-    <h2 class="card__title" id="h-source">
-      <span class="step">1</span> <span data-i18n="source.heading">Choose a PDF</span>
-    </h2>
+  <!-- Everything the ordinary path needs, and nothing else. Drop a PDF, press
+       the button, take the zip your LMS wants. -->
+  <section class="hero">
+    <h1 class="hero__title" data-i18n="hero.title">Udělejte z PDF e-learningový kurz</h1>
+    <p class="hero__sub" data-i18n="hero.sub">
+      Vznikne SCORM 1.2, SCORM 2004, xAPI i cmi5 zároveň — stáhnete si ten, který váš LMS chce.
+      Vše běží tady v prohlížeči, soubor se nikam neodesílá.
+    </p>
 
     <div class="drop" id="drop" tabindex="0" role="button" aria-describedby="drop-hint">
-      <p class="drop__lead" data-i18n="source.drop">Drop a PDF here, or click to browse</p>
-      <p class="drop__hint" id="drop-hint" data-i18n="source.hint">Nothing leaves your computer.</p>
+      <span class="drop__icon" aria-hidden="true"></span>
+      <span class="drop__lead" data-i18n="source.drop">Přetáhněte sem PDF nebo klikněte pro výběr</span>
+      <span class="drop__hint" id="drop-hint" data-i18n="source.hint">Nic neopustí váš počítač.</span>
       <input type="file" id="file" accept="application/pdf,.pdf" hidden>
     </div>
 
     <p class="filemeta" id="filemeta" hidden></p>
-  </section>
 
-  <!-- ---------- 2. course details ---------- -->
-  <section class="card" aria-labelledby="h-course">
-    <h2 class="card__title" id="h-course">
-      <span class="step">2</span> <span data-i18n="course.heading">Course details</span>
-    </h2>
-
-    <div class="grid">
-      <p class="field field--wide">
-        <label for="title" data-i18n="course.title">Course title</label>
-        <input type="text" id="title" data-i18n-placeholder="course.titlePlaceholder">
-      </p>
-
-      <p class="field field--wide">
-        <label for="description">
-          <span data-i18n="course.description">Description</span>
-          <span class="opt" data-i18n="optional">optional</span>
-        </label>
-        <input type="text" id="description" data-i18n-placeholder="course.descriptionPlaceholder">
-      </p>
-
-      <p class="field">
-        <label for="identifier" data-i18n="course.identifier">Identifier</label>
-        <input type="text" id="identifier" data-i18n-placeholder="course.identifierPlaceholder">
-        <span class="hint" data-i18n="course.identifierHint">
-          Used as the manifest identifier and the zip filename.
-        </span>
-      </p>
-
-      <p class="field">
-        <label for="language" data-i18n="course.language">Course language</label>
-        <select id="language"></select>
-        <span class="hint" data-i18n="course.languageHint">
-          Sets the language of the buttons and labels inside the course.
-        </span>
-      </p>
-
-      <p class="field field--wide">
-        <label for="activity-iri">
-          <span data-i18n="course.iri">Activity IRI</span>
-          <span class="opt" data-i18n="course.iriScope">xAPI and cmi5 only</span>
-        </label>
-        <input type="text" id="activity-iri" placeholder="https://example.com/courses/my-course">
-        <span class="hint" data-i18n="course.iriHint">
-          Must be globally unique and stable &mdash; it is how an LRS identifies this course
-          forever. Left empty, a urn: is derived from the identifier, which works
-          but is worth replacing with a real domain you control.
-        </span>
-      </p>
-    </div>
-  </section>
-
-  <!-- ---------- 3. standards ---------- -->
-  <section class="card" aria-labelledby="h-standards">
-    <h2 class="card__title" id="h-standards">
-      <span class="step">3</span> <span data-i18n="standards.heading">Standards to build</span>
-    </h2>
-
-    <ul class="checks" id="standards">
-      <li>
-        <label>
-          <input type="checkbox" value="scorm12" checked>
-          <span class="checks__name">SCORM 1.2</span>
-          <span class="checks__note" data-i18n="standards.scorm12note">
-            Widest LMS support. Start here if unsure.
-          </span>
-        </label>
-      </li>
-      <li>
-        <label>
-          <input type="checkbox" value="scorm2004" checked>
-          <span class="checks__name">SCORM 2004 4th Edition</span>
-          <span class="checks__note" data-i18n="standards.scorm2004note">
-            Separate completion and pass/fail, plus partial progress.
-          </span>
-        </label>
-      </li>
-      <li>
-        <label>
-          <input type="checkbox" value="xapi" checked>
-          <span class="checks__name">xAPI</span>
-          <span class="checks__note" data-i18n="standards.xapinote">
-            Needs an LRS. Can record which pages were read.
-          </span>
-        </label>
-      </li>
-      <li>
-        <label>
-          <input type="checkbox" value="cmi5" checked>
-          <span class="checks__name">cmi5</span>
-          <span class="checks__note" data-i18n="standards.cmi5note">
-            xAPI with a defined launch and course structure.
-          </span>
-        </label>
-      </li>
-    </ul>
-  </section>
-
-  <!-- ---------- 4. tracking ---------- -->
-  <section class="card" aria-labelledby="h-tracking">
-    <h2 class="card__title" id="h-tracking">
-      <span class="step">4</span>
-      <span data-i18n="tracking.heading">Completion and tracking</span>
-    </h2>
-
-    <div class="grid">
-      <p class="field">
-        <label for="completion-rule" data-i18n="tracking.rule">Mark complete when</label>
-        <select id="completion-rule">
-          <option value="all" selected data-i18n="tracking.ruleAll">
-            every page has been viewed
-          </option>
-          <option value="percent" data-i18n="tracking.rulePercent">
-            a share of pages has been viewed
-          </option>
-          <option value="launch" data-i18n="tracking.ruleLaunch">the course is opened</option>
-        </select>
-      </p>
-
-      <p class="field" id="threshold-field" hidden>
-        <label for="completion-threshold" data-i18n="tracking.threshold">Pages viewed (%)</label>
-        <input type="number" id="completion-threshold" min="1" max="100" value="80">
-      </p>
-
-      <p class="field">
-        <label for="mastery">
-          <span data-i18n="tracking.mastery">Mastery score (%)</span>
-          <span class="opt" data-i18n="optional">optional</span>
-        </label>
-        <input type="number" id="mastery" min="0" max="100">
-        <span class="hint" data-i18n="tracking.masteryHint">
-          Set this only if the LMS needs a pass/fail rather than just complete.
-          A page-turner has nothing to grade, so the score is the share of pages read.
-        </span>
-      </p>
-
-      <p class="field" id="moveon-field">
-        <label for="moveon">cmi5 <code>moveOn</code></label>
-        <select id="moveon">
-          <option value="Completed" selected>Completed</option>
-          <option value="Passed">Passed</option>
-          <option value="CompletedAndPassed">CompletedAndPassed</option>
-          <option value="CompletedOrPassed">CompletedOrPassed</option>
-          <option value="NotApplicable">NotApplicable</option>
-        </select>
-      </p>
-    </div>
-
-    <ul class="checks checks--tight">
-      <li id="per-page-row">
-        <label>
-          <input type="checkbox" id="per-page" checked>
-          <span class="checks__name" data-i18n="tracking.perPage">
-            Record a statement per page (xAPI)
-          </span>
-          <span class="checks__note" data-i18n="tracking.perPageNote">
-            One experienced statement the first time each page is opened.
-          </span>
-        </label>
-      </li>
-    </ul>
-  </section>
-
-  <!-- ---------- 5. images ---------- -->
-  <section class="card" aria-labelledby="h-images">
-    <h2 class="card__title" id="h-images">
-      <span class="step">5</span> <span data-i18n="images.heading">Page images</span>
-    </h2>
-
-    <div class="grid">
-      <p class="field">
-        <label for="dpi" data-i18n="images.dpi">Resolution (DPI)</label>
-        <select id="dpi">
-          <option value="96" data-i18n="images.dpi96">96</option>
-          <option value="150" selected data-i18n="images.dpi150">150</option>
-          <option value="200" data-i18n="images.dpi200">200</option>
-          <option value="300" data-i18n="images.dpi300">300</option>
-        </select>
-      </p>
-
-      <p class="field">
-        <label for="format" data-i18n="images.format">Image format</label>
-        <select id="format">
-          <option value="image/webp" selected data-i18n="images.formatWebp">WebP</option>
-          <option value="image/jpeg" data-i18n="images.formatJpeg">JPEG</option>
-          <option value="image/png" data-i18n="images.formatPng">PNG</option>
-        </select>
-      </p>
-
-      <p class="field">
-        <label for="quality" data-i18n="images.quality">Quality</label>
-        <input type="range" id="quality" min="50" max="100" value="85" step="5">
-        <span class="hint"><output id="quality-out">85</output><span
-          data-i18n="images.qualityHint">% &mdash; ignored for PNG.</span></span>
-      </p>
-    </div>
-
-    <ul class="checks checks--tight">
-      <li>
-        <label>
-          <input type="checkbox" id="extract-text" checked>
-          <span class="checks__name" data-i18n="images.text">
-            Include page text for screen readers
-          </span>
-          <span class="checks__note" data-i18n="images.textNote">
-            Each page's text travels along invisibly, so someone using a screen reader can
-            read the course too. Best left on.
-          </span>
-        </label>
-      </li>
-    </ul>
-
-    <!-- Folded away: nobody should have to weigh this up to convert a PDF. It
-         only matters for the rare LMS that rejects the package outright. -->
-    <details class="advanced" id="schemas-row">
-      <summary data-i18n="images.advanced">Advanced</summary>
-      <ul class="checks checks--tight">
-        <li>
-          <label>
-            <input type="checkbox" id="include-schemas">
-            <span class="checks__name" data-i18n="images.schemas">
-              Include the schema files
-            </span>
-            <span class="checks__note" data-i18n="images.schemasNote">
-              Turn this on only if your LMS refuses the package with a complaint about
-              schemas. Most do not need it, and it makes every package about 50 kB bigger.
-            </span>
-          </label>
-        </li>
-      </ul>
-    </details>
-  </section>
-
-  <!-- ---------- build ---------- -->
-  <section class="card card--action" aria-labelledby="h-build">
-    <h2 class="card__title" id="h-build">
-      <span class="step">6</span> <span data-i18n="build.heading">Build</span>
-    </h2>
-
-    <button class="build" id="build" disabled data-i18n="build.action">Build packages</button>
+    <button class="build" id="build" disabled data-i18n="build.action">Vytvořit balíčky</button>
 
     <div class="progress" id="progress" hidden>
       <div class="progress__bar"><div class="progress__fill" id="progress-fill"></div></div>
@@ -290,28 +46,203 @@
     <p class="error" id="error" hidden role="alert"></p>
 
     <div class="results" id="results" hidden>
-      <h3 class="results__title" data-i18n="build.results">Packages</h3>
+      <h2 class="results__title" data-i18n="build.results">Balíčky</h2>
       <ul class="results__list" id="results-list"></ul>
-      <button class="secondary" id="download-all" hidden data-i18n="build.downloadAll">
-        Download all as one zip
+      <button class="ghost" id="download-all" hidden data-i18n="build.downloadAll">
+        Stáhnout vše v jednom ZIP
       </button>
     </div>
   </section>
 
-  <section class="card" aria-labelledby="h-preview" id="preview-card" hidden>
-    <h2 class="card__title" id="h-preview" data-i18n="build.preview">Rendered pages</h2>
+  <!-- Folded away on purpose: with sensible defaults nobody has to open this to
+       get a working course. -->
+  <details class="settings">
+    <summary class="settings__summary">
+      <span data-i18n="settings.heading">Nastavení</span>
+      <span class="settings__note" data-i18n="settings.note">nepovinné</span>
+    </summary>
+
+    <div class="settings__body">
+
+      <div class="group">
+        <h2 class="group__title" data-i18n="course.heading">Údaje o kurzu</h2>
+        <div class="grid">
+          <p class="field field--wide">
+            <label for="title" data-i18n="course.title">Název kurzu</label>
+            <input type="text" id="title" data-i18n-placeholder="course.titlePlaceholder">
+          </p>
+          <p class="field field--wide">
+            <label for="description">
+              <span data-i18n="course.description">Popis</span>
+              <span class="opt" data-i18n="optional">nepovinné</span>
+            </label>
+            <input type="text" id="description" data-i18n-placeholder="course.descriptionPlaceholder">
+          </p>
+          <p class="field">
+            <label for="identifier" data-i18n="course.identifier">Identifikátor</label>
+            <input type="text" id="identifier" data-i18n-placeholder="course.identifierPlaceholder">
+            <span class="hint" data-i18n="course.identifierHint"></span>
+          </p>
+          <p class="field">
+            <label for="language" data-i18n="course.language">Jazyk kurzu</label>
+            <select id="language"></select>
+            <span class="hint" data-i18n="course.languageHint"></span>
+          </p>
+          <p class="field field--wide">
+            <label for="activity-iri">
+              <span data-i18n="course.iri">Jednoznačná adresa kurzu</span>
+              <span class="opt" data-i18n="course.iriScope">jen pro xAPI a cmi5</span>
+            </label>
+            <input type="text" id="activity-iri" placeholder="https://example.com/kurzy/gdpr">
+            <span class="hint" data-i18n="course.iriHint"></span>
+          </p>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2 class="group__title" data-i18n="standards.heading">Formáty k vytvoření</h2>
+        <ul class="checks" id="standards">
+          <li>
+            <label>
+              <input type="checkbox" value="scorm12" checked>
+              <span class="checks__name">SCORM 1.2</span>
+              <span class="checks__note" data-i18n="standards.scorm12note"></span>
+            </label>
+          </li>
+          <li>
+            <label>
+              <input type="checkbox" value="scorm2004" checked>
+              <span class="checks__name">SCORM 2004 4th Edition</span>
+              <span class="checks__note" data-i18n="standards.scorm2004note"></span>
+            </label>
+          </li>
+          <li>
+            <label>
+              <input type="checkbox" value="xapi" checked>
+              <span class="checks__name">xAPI</span>
+              <span class="checks__note" data-i18n="standards.xapinote"></span>
+            </label>
+          </li>
+          <li>
+            <label>
+              <input type="checkbox" value="cmi5" checked>
+              <span class="checks__name">cmi5</span>
+              <span class="checks__note" data-i18n="standards.cmi5note"></span>
+            </label>
+          </li>
+        </ul>
+      </div>
+
+      <div class="group">
+        <h2 class="group__title" data-i18n="tracking.heading">Dokončení a sledování</h2>
+        <div class="grid">
+          <p class="field">
+            <label for="completion-rule" data-i18n="tracking.rule">Označit jako dokončené, když</label>
+            <select id="completion-rule">
+              <option value="all" selected data-i18n="tracking.ruleAll"></option>
+              <option value="percent" data-i18n="tracking.rulePercent"></option>
+              <option value="launch" data-i18n="tracking.ruleLaunch"></option>
+            </select>
+          </p>
+          <p class="field" id="threshold-field" hidden>
+            <label for="completion-threshold" data-i18n="tracking.threshold">Zobrazené stránky (%)</label>
+            <input type="number" id="completion-threshold" min="1" max="100" value="80">
+          </p>
+          <p class="field">
+            <label for="mastery">
+              <span data-i18n="tracking.mastery">Hranice úspěšnosti (%)</span>
+              <span class="opt" data-i18n="optional">nepovinné</span>
+            </label>
+            <input type="number" id="mastery" min="0" max="100">
+            <span class="hint" data-i18n="tracking.masteryHint"></span>
+          </p>
+          <p class="field" id="moveon-field">
+            <label for="moveon">cmi5 <code>moveOn</code></label>
+            <select id="moveon">
+              <option value="Completed" selected>Completed</option>
+              <option value="Passed">Passed</option>
+              <option value="CompletedAndPassed">CompletedAndPassed</option>
+              <option value="CompletedOrPassed">CompletedOrPassed</option>
+              <option value="NotApplicable">NotApplicable</option>
+            </select>
+          </p>
+        </div>
+        <ul class="checks checks--tight">
+          <li id="per-page-row">
+            <label>
+              <input type="checkbox" id="per-page" checked>
+              <span class="checks__name" data-i18n="tracking.perPage">Sledovat jednotlivé stránky</span>
+              <span class="checks__note" data-i18n="tracking.perPageNote"></span>
+            </label>
+          </li>
+        </ul>
+      </div>
+
+      <div class="group">
+        <h2 class="group__title" data-i18n="images.heading">Obrázky stránek</h2>
+        <div class="grid">
+          <p class="field">
+            <label for="dpi" data-i18n="images.dpi">Rozlišení (DPI)</label>
+            <select id="dpi">
+              <option value="96" data-i18n="images.dpi96"></option>
+              <option value="150" selected data-i18n="images.dpi150"></option>
+              <option value="200" data-i18n="images.dpi200"></option>
+              <option value="300" data-i18n="images.dpi300"></option>
+            </select>
+          </p>
+          <p class="field">
+            <label for="format" data-i18n="images.format">Formát obrázků</label>
+            <select id="format">
+              <option value="image/webp" selected data-i18n="images.formatWebp"></option>
+              <option value="image/jpeg" data-i18n="images.formatJpeg"></option>
+              <option value="image/png" data-i18n="images.formatPng"></option>
+            </select>
+          </p>
+          <p class="field">
+            <label for="quality" data-i18n="images.quality">Kvalita</label>
+            <input type="range" id="quality" min="50" max="100" value="85" step="5">
+            <span class="hint"><output id="quality-out">85</output><span
+              data-i18n="images.qualityHint"></span></span>
+          </p>
+        </div>
+        <ul class="checks checks--tight">
+          <li>
+            <label>
+              <input type="checkbox" id="extract-text" checked>
+              <span class="checks__name" data-i18n="images.text">Přiložit text stránek pro čtečky obrazovky</span>
+              <span class="checks__note" data-i18n="images.textNote"></span>
+            </label>
+          </li>
+        </ul>
+
+        <details class="advanced" id="schemas-row">
+          <summary data-i18n="images.advanced">Pokročilé</summary>
+          <ul class="checks checks--tight">
+            <li>
+              <label>
+                <input type="checkbox" id="include-schemas">
+                <span class="checks__name" data-i18n="images.schemas">Přiložit soubory se schématy</span>
+                <span class="checks__note" data-i18n="images.schemasNote"></span>
+              </label>
+            </li>
+          </ul>
+        </details>
+      </div>
+
+    </div>
+  </details>
+
+  <section class="group group--preview" id="preview-card" hidden>
+    <h2 class="group__title" data-i18n="build.preview">Vykreslené stránky</h2>
     <div class="preview" id="preview"></div>
   </section>
 
 </main>
 
 <footer class="footer">
-  <p data-i18n="footer">
-    Built with pdf.js and JSZip, both bundled locally so the converter works offline.
-  </p>
+  <p data-i18n="footer"></p>
 </footer>
 
-<!-- JSZip ships as UMD and sets window.JSZip; loaded before the module that uses it. -->
 <script src="vendor/jszip.min.js"></script>
 <script type="module" src="app/main.js"></script>
 </body>

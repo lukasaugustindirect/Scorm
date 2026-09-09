@@ -138,6 +138,12 @@ async function main() {
 
   // Reuse the served page's markup so there is one source of truth for the UI.
   // Its <head> and the script/style tags that assume separate files go.
+  // The page's identity -- language, title, icon -- is lifted from index.html
+  // too. Keeping a second copy here is how the two drift apart.
+  const lang = /<html lang="([^"]+)"/.exec(indexHtml)?.[1] || 'en';
+  const title = /<title>([^<]*)<\/title>/.exec(indexHtml)?.[1] || 'PDF to SCORM';
+  const icon = /<link rel="icon"[^>]*>/.exec(indexHtml)?.[0] || '';
+
   const bodyStart = indexHtml.indexOf('<body>') + '<body>'.length;
   const bodyEnd = indexHtml.lastIndexOf('</body>');
   if (bodyStart < 6 || bodyEnd < 0) throw new Error('could not find <body> in index.html');
@@ -149,12 +155,12 @@ async function main() {
     .trim();
 
   const html = `<!doctype html>
-<html lang="en">
+<html lang="${lang}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%231f6feb'/%3E%3Cpath d='M4 3h5l3 3v7H4z' fill='%23fff'/%3E%3Cpath d='M9 3v3h3z' fill='%23a8c7fa'/%3E%3C/svg%3E">
-<title>PDF to SCORM Converter</title>
+${icon}
+<title>${title}</title>
 <style>
 ${css}
 </style>

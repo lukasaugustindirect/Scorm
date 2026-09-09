@@ -23,7 +23,10 @@ const ROOT = join(HERE, '..');
 const OUT = join(HERE, 'output');
 
 const FIXTURE_PAGES = 3;
-const FIXTURE_TITLE = 'Fixture Document';
+// Diacritics on purpose: this tool is aimed at Czech course authors, so a
+// title has to survive PDF metadata -> the UI field -> UTF-8 manifest XML ->
+// the zip. Mirrored as COURSE_TITLE in verify.py, which checks the far end.
+const FIXTURE_TITLE = 'Bezpečnost práce 2026';
 const STANDARDS = ['scorm12', 'scorm2004', 'xapi', 'cmi5'];
 
 /**
@@ -189,6 +192,45 @@ async function main() {
       problems.push(`page count not detected, got: ${meta.trim()}`);
     }
 
+    // The ordinary path is meant to be a drop zone and a button, with every
+    // decision folded away behind sensible defaults. That is a claim about the
+    // page, so check it before reaching inside: if the disclosure ever ends up
+    // open by default, or a control leaks out of it, the layout has regressed
+    // even though everything still builds.
+    const folded = await page.evaluate(() => {
+      // checkVisibility(), not a bounding box: Chromium keeps the contents of a
+      // closed <details> laid out with a real height and an offsetParent, and
+      // only marks them not-rendered. Measured on Chrome 141 -- a height test
+      // here reports every folded control as on screen.
+      const onScreen = (el) => !!el && el.checkVisibility();
+      const settings = document.querySelector('details.settings');
+      return {
+        closed: !!settings && !settings.open,
+        build: onScreen(document.getElementById('build')),
+        drop: onScreen(document.getElementById('drop')),
+        leaked: ['identifier', 'language', 'mastery', 'format', 'include-schemas']
+          .filter((id) => {
+            const el = document.getElementById(id);
+            // Two ways of asking the same question: is it painted, and does it
+            // actually sit behind a folded disclosure.
+            return onScreen(el) || !el.closest('details:not([open])');
+          }),
+      };
+    });
+    if (!folded.closed) problems.push('the settings disclosure is open by default');
+    if (!folded.drop || !folded.build) {
+      problems.push('the drop zone and build button are not both visible on load');
+    }
+    if (folded.leaked.length) {
+      problems.push(`options escaped the settings disclosure: ${folded.leaked.join(', ')}`);
+    }
+    console.log('layout: drop zone and button only, settings folded away');
+
+    // From here on the test needs the options, so open the disclosure the way a
+    // person would rather than reaching past the UI. It stays open for the rest
+    // of the run.
+    await page.click('summary.settings__summary');
+
     const title = await page.inputValue('#title');
     if (title !== FIXTURE_TITLE) {
       problems.push(`title not read from PDF metadata, got: ${JSON.stringify(title)}`);
@@ -231,8 +273,8 @@ async function main() {
     // paths need exercising: the conditional xsi:schemaLocation is only
     // correct if the files it points at are actually there.
     await mkdir(join(OUT, 'withschemas'), { recursive: true });
-    // The option lives in a folded "Advanced" section, so open it the way a
-    // person would rather than reaching past the UI.
+    // The option lives in a folded "Advanced" section nested inside the
+    // settings, so open that too.
     await page.click('#schemas-row > summary');
     await page.check('#include-schemas');
     await page.click('#build');
