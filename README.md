@@ -108,6 +108,27 @@ the cmi5 rules that are easy to break. Switch launch mode to *Browse* or
 The stub LRS is a test double, not an LRS: no auth enforcement, no querying, no
 persistence. It should never face a network.
 
+## How it looks, and why
+
+Warm parchment rather than the cold white of most developer tools: the ground is
+`#f7f4ed`, and the palette is built warm from there. The composition is one idea
+— the drop zone *is* the card, floating on the parchment as the single object on
+the page, rather than sitting inside another box. Nesting cards is what made
+earlier versions read as a form instead of an application.
+
+Amber is flat, never a gradient, and the palette splits it in two, which is the
+part that is easy to get wrong: white text on bright amber measures **2.15:1**
+and is unreadable, so bright amber is only ever a *fill* and carries near-black
+text at **8.8:1**. Where amber has to *be* text or an icon on white it drops to
+amber-700, which reaches **5.0:1**. Both figures were computed, not eyeballed —
+if you change the accent, recompute them.
+
+The typeface is Inter, embedded as base64 in `app/fonts.css` rather than linked,
+because the single-file build runs from `file://` where a page cannot fetch its
+own siblings. The shipped player deliberately does *not* carry it: 175 kB in
+every package a learner downloads is not worth it for a page-turner whose text
+lives inside the page images.
+
 ## Options worth understanding
 
 You do not have to read any of this to use the tool. Drop a PDF, press the
@@ -278,5 +299,7 @@ Specifications the implementation was checked against:
 ## Licence
 
 MIT. Bundled libraries keep their own: pdf.js is Apache-2.0, JSZip is MIT or
-GPLv3 — see `vendor/`. The schema files under `schemas/` are ADL and IMS Global
-documents, redistributed unmodified.
+GPLv3 — see `vendor/`. The typeface is Inter, SIL Open Font License, embedded
+by `app/fonts.css` (regenerate with `node tools/build-fonts.mjs`) — see
+`vendor/fonts/inter-LICENSE.txt`. The schema files under `schemas/` are ADL and
+IMS Global documents, redistributed unmodified.

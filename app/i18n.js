@@ -81,8 +81,8 @@ export const UI_STRINGS = {
     'app.language': 'Interface language',
 
     'hero.title': 'Turn a PDF into an e-learning course',
-    'hero.sub': 'You get SCORM 1.2, SCORM 2004, xAPI and cmi5 at once — download whichever '
-      + 'one your LMS wants. Everything runs here in the browser; the file is never uploaded.',
+    'hero.sub': 'All four formats at once — SCORM 1.2, SCORM 2004, xAPI, cmi5. '
+      + 'Runs in your browser; the file is never uploaded.',
     'settings.heading': 'Settings',
     'settings.note': 'optional',
     'course.fallbackTitle': 'Course',
@@ -174,8 +174,8 @@ export const UI_STRINGS = {
     'app.language': 'Jazyk rozhraní',
 
     'hero.title': 'Udělejte z PDF e-learningový kurz',
-    'hero.sub': 'Vznikne SCORM 1.2, SCORM 2004, xAPI i cmi5 zároveň — stáhnete si ten, který '
-      + 'váš LMS chce. Vše běží tady v prohlížeči, soubor se nikam neodesílá.',
+    'hero.sub': 'Všechny čtyři formáty naráz — SCORM 1.2, SCORM 2004, xAPI, cmi5. '
+      + 'Běží ve vašem prohlížeči, soubor se nikam neodesílá.',
     'settings.heading': 'Nastavení',
     'settings.note': 'nepovinné',
     'course.fallbackTitle': 'Kurz',

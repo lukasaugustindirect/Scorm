@@ -119,7 +119,8 @@ async function bundleApp() {
 }
 
 async function main() {
-  const [css, pdfLib, pdfWorker, jszip, indexHtml, appBundle] = await Promise.all([
+  const [fontCss, css, pdfLib, pdfWorker, jszip, indexHtml, appBundle] = await Promise.all([
+    read('app/fonts.css'),
     read('app/app.css'),
     read('vendor/classic/pdf.min.js'),
     read('vendor/classic/pdf.worker.min.js'),
@@ -135,6 +136,12 @@ async function main() {
     ['pdf.min.js', pdfLib], ['pdf.worker.min.js', pdfWorker], ['jszip.min.js', jszip],
     ['app bundle', appBundle],
   ]) assertInlineSafe(name, text);
+
+  for (const [name, text] of [['app/fonts.css', fontCss], ['app/app.css', css]]) {
+    if (/<\/style/i.test(text)) {
+      throw new Error(`${name} contains "</style" and cannot be inlined verbatim`);
+    }
+  }
 
   // Reuse the served page's markup so there is one source of truth for the UI.
   // Its <head> and the script/style tags that assume separate files go.
@@ -161,6 +168,9 @@ async function main() {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 ${icon}
 <title>${title}</title>
+<style>
+${fontCss}
+</style>
 <style>
 ${css}
 </style>
