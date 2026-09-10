@@ -1,9 +1,18 @@
 // Converter UI.
+//
+// One PDF or many: every file dropped becomes a course entry, and the entry --
+// not the form -- is where a course's title and language live. With one file
+// the Settings fields mirror that entry, so nothing looks different; with
+// several, each row in the list carries its own, because one form cannot hold
+// five titles. Either way the values were worked out from the document first
+// (see app/derive.js) and are only overridden by a person, never guessed twice.
 
 import { renderPdf, peek } from './pdf-render.js';
 import { buildPackage, bundle } from './package-builder.js';
 import { LANGUAGES, uiStrings, fill } from './i18n.js';
 import { courseLanguage, courseTitle, failureKey } from './derive.js';
+import { id as safeId } from './standards/xml.js';
+import { BY_ID } from './standards/index.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -13,11 +22,14 @@ const ui = {
   file: el('file'),
   filemeta: el('filemeta'),
   notices: el('notices'),
+  queue: el('queue'),
   title: el('title'),
   description: el('description'),
   identifier: el('identifier'),
   language: el('language'),
   activityIri: el('activity-iri'),
+  courseFields: el('course-fields'),
+  bulkNote: el('bulk-note'),
   standards: el('standards'),
   completionRule: el('completion-rule'),
   thresholdField: el('threshold-field'),
@@ -42,26 +54,46 @@ const ui = {
   results: el('results'),
   resultsList: el('results-list'),
   downloadAll: el('download-all'),
+  downloadFormats: el('download-formats'),
   previewCard: el('preview-card'),
   preview: el('preview'),
 };
 
 const LANGUAGE_KEY = 'pdf-to-scorm.uiLanguage';
 
-// The File is kept rather than its bytes: pdf.js transfers the ArrayBuffer it
-// is handed to its worker, which detaches it. Re-reading the File keeps a
-// second build from failing on a dead buffer.
-let pdfFile = null;
-let pdfInfo = null;
+/**
+ * The courses in hand, one per PDF.
+ *
+ * Each keeps its File rather than its bytes: pdf.js transfers the ArrayBuffer
+ * it is handed to its worker, which detaches it, so a second build would fail
+ * on a dead buffer. Re-reading the File is cheap and safe.
+ *
+ * @type {Array<{
+ *   id: number, file: File, info: object|null, title: string,
+ *   description: string, language: string,
+ *   notices: Array<{key: string, values?: object}>, error: string,
+ *   status: 'reading'|'ready'|'failed', built: Array<object>,
+ * }>}
+ */
+let courses = [];
+let nextId = 1;
 let strings = uiStrings('en');
-let built = [];
 let objectUrls = [];
 let busy = false;
-// Set once the author picks a course language by hand, after which the
-// interface language stops dragging it along.
+// Set once the author picks a course language by hand, after which neither the
+// interface language nor a document's own /Lang moves it.
 let courseLanguagePinned = false;
 
 const t = (key, values) => fill(strings[key], values);
+
+/** A count with its noun, declined for the interface language. */
+function counted(count, noun) {
+  const form = new Intl.PluralRules(ui.uiLanguage.value).select(count);
+  return `${count} ${t(`${noun}.${form}`) || t(`${noun}.other`)}`;
+}
+
+const single = () => courses.length === 1;
+const ready = () => courses.filter((c) => c.status === 'ready');
 
 /* ---------- language ---------- */
 
@@ -83,16 +115,19 @@ function rememberLanguage(code) {
   }
 }
 
-function initLanguages() {
-  for (const select of [ui.uiLanguage, ui.language]) {
-    select.replaceChildren();
-    for (const language of LANGUAGES) {
-      const option = document.createElement('option');
-      option.value = language.code;
-      option.textContent = language.label;
-      select.appendChild(option);
-    }
+function languageOptions(select) {
+  select.replaceChildren();
+  for (const language of LANGUAGES) {
+    const option = document.createElement('option');
+    option.value = language.code;
+    option.textContent = language.label;
+    select.appendChild(option);
   }
+}
+
+function initLanguages() {
+  languageOptions(ui.uiLanguage);
+  languageOptions(ui.language);
 
   const initial = LANGUAGES.some((l) => l.code === storedLanguage())
     ? storedLanguage()
@@ -100,18 +135,28 @@ function initLanguages() {
 
   ui.uiLanguage.value = initial;
   // The course defaults to the language of the interface, which is right far
-  // more often than not.
+  // more often than not -- until the document says otherwise, or the author.
   ui.language.value = initial;
 
-  // ...and keeps following it until the author says otherwise. Without this,
-  // switching the interface to Czech left the course language on English and
-  // silently produced a course with English buttons -- a trap, because nothing
-  // on screen contradicted the choice that had just been made.
-  ui.language.addEventListener('change', () => { courseLanguagePinned = true; });
+  // A hand-picked course language is final. Without this, switching the
+  // interface to Czech left the course on English and silently produced a
+  // course with English buttons -- a trap, because nothing on screen
+  // contradicted the choice that had just been made.
+  ui.language.addEventListener('change', () => {
+    courseLanguagePinned = true;
+    if (single()) courses[0].language = ui.language.value;
+  });
 
   ui.uiLanguage.addEventListener('change', () => {
     rememberLanguage(ui.uiLanguage.value);
-    if (!courseLanguagePinned) ui.language.value = ui.uiLanguage.value;
+    if (!courseLanguagePinned) {
+      ui.language.value = ui.uiLanguage.value;
+      // Courses that took their language from the interface follow it; ones
+      // that took it from their own document do not.
+      for (const course of courses) {
+        if (!course.languageFromPdf) course.language = ui.uiLanguage.value;
+      }
+    }
     applyLanguage();
   });
   applyLanguage();
@@ -132,7 +177,7 @@ function applyLanguage() {
   }
 
   // Text built at runtime is not covered by the attribute sweep.
-  if (pdfFile && pdfInfo) describeFile(pdfFile, pdfInfo);
+  refreshIntake();
   ui.uiLanguage.setAttribute('aria-label', t('app.language'));
 }
 
@@ -158,52 +203,75 @@ ui.drop.addEventListener('keydown', (event) => {
 
 ui.drop.addEventListener('drop', (event) => {
   event.preventDefault();
-  const file = event.dataTransfer.files && event.dataTransfer.files[0];
-  if (file) accept(file);
+  accept(event.dataTransfer.files);
 });
 
 ui.file.addEventListener('change', () => {
-  if (ui.file.files[0]) accept(ui.file.files[0]);
+  accept(ui.file.files);
+  // Otherwise picking the same file again is silently ignored.
+  ui.file.value = '';
 });
 
-function describeFile(file, info) {
-  const count = info.numPages;
-  const unit = t(count === 1 ? 'source.page' : 'source.pages');
-  ui.filemeta.textContent = `${file.name} — ${formatBytes(file.size)}, ${count} ${unit}`;
-}
-
-async function accept(file) {
-  const looksLikePdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
-  if (!looksLikePdf) {
-    fail(t('source.notPdf', { name: file.name }));
-    return;
-  }
+/**
+ * Takes in whatever was dropped: one PDF or a folder's worth.
+ *
+ * Files are read one after another rather than all at once. pdf.js holds each
+ * document in memory while it is open, and twenty PDFs opened together is how
+ * a browser tab dies; one at a time is bounded and still fast.
+ */
+async function accept(fileList) {
+  const files = Array.from(fileList || []);
+  const pdfs = files.filter(
+    (file) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name),
+  );
+  const skipped = files.filter((file) => !pdfs.includes(file));
 
   clearError();
-  pdfFile = file;
-  pdfInfo = null;
-  built = [];
+  if (skipped.length) {
+    fail(t('source.notPdf', { name: skipped.map((f) => f.name).join(', ') }));
+  }
+  if (!pdfs.length) return;
+
+  // A build in hand belongs to the previous set of files.
+  releaseUrls();
   ui.results.hidden = true;
+  ui.resultsList.replaceChildren();
   ui.previewCard.hidden = true;
   ui.preview.replaceChildren();
+  for (const course of courses) course.built = [];
 
-  ui.filemeta.hidden = false;
-  ui.notices.hidden = true;
-  ui.notices.replaceChildren();
-  ui.filemeta.textContent = `${file.name} — ${formatBytes(file.size)}, ${t('source.reading')}`;
+  const entries = pdfs.map((file) => ({
+    id: nextId++,
+    file,
+    info: null,
+    title: '',
+    description: '',
+    language: ui.language.value,
+    languageFromPdf: false,
+    notices: [],
+    error: '',
+    status: 'reading',
+    built: [],
+  }));
+  courses.push(...entries);
+  refreshIntake();
 
+  for (const entry of entries) {
+    await intake(entry);
+    refreshIntake();
+  }
+}
+
+/** Reads one PDF and works out what the course should be. */
+async function intake(entry) {
   try {
-    const info = await peek(await file.arrayBuffer());
-    pdfInfo = info;
-    describeFile(file, info);
-    adoptFromPdf(file, info);
-    ui.build.disabled = false;
+    const info = await peek(await entry.file.arrayBuffer());
+    entry.info = info;
+    adoptFromPdf(entry);
+    entry.status = 'ready';
   } catch (err) {
-    pdfFile = null;
-    pdfInfo = null;
-    ui.build.disabled = true;
-    ui.filemeta.textContent = `${file.name} — ${formatBytes(file.size)}`;
-    fail(describeFailure(err));
+    entry.status = 'failed';
+    entry.error = describeFailure(err);
   }
 }
 
@@ -216,64 +284,206 @@ function describeFailure(err) {
 }
 
 /**
- * Takes the course settings from the PDF, and says what it took.
+ * Takes the course settings from the PDF, and records what it took.
  *
  * This is the whole point of the automatic path: nobody should have to open a
  * PDF to find out whether it carries a title, or check afterwards that the
- * course did not end up named after a file. Fields the person has already
- * filled in are never overwritten -- an explicit choice outranks a good guess.
+ * course did not end up named after a file. The notices are stored as keys, not
+ * sentences, so they re-render when the interface language changes.
  */
-function adoptFromPdf(file, info) {
-  const notes = [];
+function adoptFromPdf(entry) {
+  const { file, info } = entry;
+  entry.notices = [];
 
-  if (!ui.title.value) {
-    const picked = courseTitle({
-      metaTitle: info.title,
-      heading: info.heading,
-      filename: file.name,
-    });
-    ui.title.value = picked.title;
-    // A title straight out of the metadata needs no explaining: it is what the
-    // document says it is called. The other two were worked out, so they are
-    // reported.
-    if (picked.source === 'page') {
-      notes.push(t('notice.titleFromPage', { title: picked.title }));
-    } else if (picked.source === 'filename') {
-      notes.push(t('notice.titleFromFile', { title: picked.title }));
-    }
+  const picked = courseTitle({
+    metaTitle: info.title,
+    heading: info.heading,
+    filename: file.name,
+  });
+  entry.title = picked.title;
+  // A title straight out of the metadata needs no explaining: it is what the
+  // document says it is called. The other two were worked out, so they are
+  // reported.
+  if (picked.source === 'page') {
+    entry.notices.push({ key: 'notice.titleFromPage', values: { title: picked.title } });
+  } else if (picked.source === 'filename') {
+    entry.notices.push({ key: 'notice.titleFromFile', values: { title: picked.title } });
   }
 
-  if (!ui.description.value && info.subject) ui.description.value = info.subject;
+  if (info.subject) entry.description = info.subject;
 
   // A document that declares its own language beats the interface language: an
   // English deck converted in a Czech interface should still give its learners
-  // English buttons.
+  // English buttons. A language the author pinned by hand beats both.
   if (!courseLanguagePinned) {
     const declared = courseLanguage(info.language, LANGUAGES.map((l) => l.code));
-    if (declared && declared !== ui.language.value) {
-      ui.language.value = declared;
-      // Named the way the interface language would say it in a sentence, which
-      // is not what the picker shows: Czech needs a case ending here.
-      notes.push(t('notice.language', { language: t(`lang.${declared}`) || declared }));
+    if (declared) {
+      entry.languageFromPdf = true;
+      if (declared !== entry.language) {
+        entry.language = declared;
+        entry.notices.push({ key: 'notice.language', values: { lang: declared } });
+      }
     }
   }
 
-  // A scan has no text to attach, so the option is switched off rather than
-  // left on producing empty strings and a course that claims to be accessible.
-  if (!info.hasText) {
-    ui.extractText.checked = false;
-    notes.push(t('notice.scanned'));
+  // A scan has no text to attach. Said here; acted on at build time, where the
+  // option is simply not applied to a document that has nothing to give.
+  if (!info.hasText) entry.notices.push({ key: 'notice.scanned' });
+}
+
+/** One notice, rendered in the current interface language. */
+function noticeText(notice) {
+  if (notice.key === 'notice.language') {
+    // Named the way the interface language would say it in a sentence, which
+    // is not what the picker shows: Czech needs a case ending here.
+    return t('notice.language', { language: t(`lang.${notice.values.lang}`) || notice.values.lang });
+  }
+  return t(notice.key, notice.values);
+}
+
+function fileLine(entry) {
+  const size = formatBytes(entry.file.size);
+  if (entry.status === 'reading') return `${entry.file.name} — ${size}, ${t('source.reading')}`;
+  if (entry.status === 'failed') return `${entry.file.name} — ${size}`;
+  const count = entry.info.numPages;
+  return `${entry.file.name} — ${size}, ${count} ${t(count === 1 ? 'source.page' : 'source.pages')}`;
+}
+
+/**
+ * Redraws everything about the files in hand.
+ *
+ * One file: the line under the drop zone and the notices, as ever, with the
+ * Settings fields mirroring the course. Several: a list with a row per course,
+ * each carrying its own title and language, and the per-course Settings fields
+ * stood down with a note saying where those now live.
+ */
+function refreshIntake() {
+  const bulk = courses.length > 1;
+
+  ui.filemeta.hidden = bulk || !courses.length;
+  ui.notices.hidden = true;
+  ui.queue.hidden = !bulk;
+  ui.courseFields.hidden = bulk;
+  ui.bulkNote.hidden = !bulk;
+
+  if (single()) {
+    const entry = courses[0];
+    ui.filemeta.textContent = fileLine(entry);
+    if (entry.status === 'failed') {
+      fail(entry.error);
+    } else if (entry.status === 'ready') {
+      mirrorToFields(entry);
+      const notes = entry.notices.map(noticeText);
+      if (!entry.info.hasText) ui.extractText.checked = false;
+      if (notes.length) {
+        notes.push(t('notice.settings'));
+        ui.notices.replaceChildren(...notes.map((text) => {
+          const li = document.createElement('li');
+          li.textContent = text;
+          return li;
+        }));
+        ui.notices.hidden = false;
+      }
+    }
   }
 
-  if (notes.length) {
-    notes.push(t('notice.settings'));
-    ui.notices.replaceChildren(...notes.map((text) => {
-      const li = document.createElement('li');
-      li.textContent = text;
-      return li;
-    }));
-    ui.notices.hidden = false;
+  if (bulk) renderQueue();
+
+  const anyReady = ready().length > 0;
+  ui.build.disabled = busy || !anyReady;
+  ui.build.textContent = bulk && anyReady
+    ? t('build.actionMany', { count: counted(ready().length, 'unit.course') })
+    : t('build.action');
+}
+
+/** The Settings fields show the one course; edits go straight back to it. */
+function mirrorToFields(entry) {
+  ui.title.value = entry.title;
+  ui.description.value = entry.description;
+  ui.language.value = entry.language;
+}
+ui.title.addEventListener('input', () => { if (single()) courses[0].title = ui.title.value; });
+ui.description.addEventListener('input', () => {
+  if (single()) courses[0].description = ui.description.value;
+});
+
+/** The list for several files: one row per course, editable in place. */
+function renderQueue() {
+  const frag = document.createDocumentFragment();
+
+  for (const entry of courses) {
+    const row = document.createElement('li');
+    row.className = 'queue__row';
+    row.dataset.status = entry.status;
+
+    const file = document.createElement('div');
+    file.className = 'queue__file';
+    file.textContent = fileLine(entry);
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'queue__remove';
+    remove.title = t('queue.remove');
+    remove.setAttribute('aria-label', `${t('queue.remove')}: ${entry.file.name}`);
+    remove.textContent = '×';
+    remove.addEventListener('click', () => {
+      courses = courses.filter((c) => c !== entry);
+      refreshIntake();
+    });
+
+    const head = document.createElement('div');
+    head.className = 'queue__head';
+    head.append(file, remove);
+    row.appendChild(head);
+
+    if (entry.status === 'failed') {
+      const error = document.createElement('p');
+      error.className = 'queue__error';
+      error.textContent = entry.error;
+      row.appendChild(error);
+    }
+
+    if (entry.status === 'ready') {
+      const fields = document.createElement('div');
+      fields.className = 'queue__fields';
+
+      const title = document.createElement('input');
+      title.type = 'text';
+      title.className = 'queue__title';
+      title.value = entry.title;
+      title.setAttribute('aria-label', t('course.title'));
+      title.addEventListener('input', () => { entry.title = title.value; });
+
+      const language = document.createElement('select');
+      language.className = 'queue__lang';
+      languageOptions(language);
+      language.value = entry.language;
+      language.setAttribute('aria-label', t('course.language'));
+      language.addEventListener('change', () => {
+        entry.language = language.value;
+        // Picked by hand for this course: nothing moves it again.
+        entry.languageFromPdf = true;
+      });
+
+      fields.append(title, language);
+      row.appendChild(fields);
+
+      if (entry.notices.length) {
+        const notes = document.createElement('ul');
+        notes.className = 'queue__notices';
+        for (const notice of entry.notices) {
+          const li = document.createElement('li');
+          li.textContent = noticeText(notice);
+          notes.appendChild(li);
+        }
+        row.appendChild(notes);
+      }
+    }
+
+    frag.appendChild(row);
   }
+
+  ui.queue.replaceChildren(frag);
 }
 
 /* ---------- option plumbing ---------- */
@@ -284,17 +494,14 @@ ui.completionRule.addEventListener('change', () => {
   ui.thresholdField.hidden = ui.completionRule.value !== 'percent';
 });
 
-// Options that only mean something for one standard are hidden when that
-// standard is not being built, so the form does not ask questions that have no
-// bearing on the output.
+// Options that only mean something for one standard hide with it.
 ui.standards.addEventListener('change', syncStandardOptions);
 
 function syncStandardOptions() {
-  const chosen = selectedStandards();
-  ui.moveOnField.hidden = !chosen.includes('cmi5');
-  ui.perPageRow.hidden = !chosen.includes('xapi');
-  // Only the two SCORM standards have schemas to ship.
-  ui.schemasRow.hidden = !chosen.some((id) => id.startsWith('scorm'));
+  const picked = selectedStandards();
+  ui.moveOnField.hidden = !picked.includes('cmi5');
+  ui.perPageRow.hidden = !picked.includes('xapi');
+  ui.schemasRow.hidden = !picked.some((id) => id === 'scorm12' || id === 'scorm2004');
 }
 
 function selectedStandards() {
@@ -302,16 +509,12 @@ function selectedStandards() {
     .map((box) => box.value);
 }
 
-function settings() {
+/** The options every course in the batch shares. */
+function sharedSettings() {
   const masteryPercent = ui.mastery.value.trim();
   const parsedMastery = masteryPercent === '' ? null : Number(masteryPercent);
 
   return {
-    title: ui.title.value.trim() || t('course.fallbackTitle'),
-    description: ui.description.value.trim(),
-    identifier: ui.identifier.value.trim(),
-    language: ui.language.value,
-    activityIri: ui.activityIri.value.trim(),
     completionRule: ui.completionRule.value,
     completionThreshold: Number(ui.threshold.value) || 80,
     // The UI asks for a percentage because that is how people think about a
@@ -330,12 +533,50 @@ function settings() {
   };
 }
 
+/**
+ * The options for one course: what was worked out from its PDF, what the
+ * author changed, and an identifier no other course in the batch is using.
+ */
+function courseSettings(entry, identifier, shared) {
+  return {
+    ...shared,
+    title: entry.title.trim() || t('course.fallbackTitle'),
+    description: entry.description.trim(),
+    identifier,
+    language: entry.language,
+    // The IRI field is a single-course affair; in a batch each course gets the
+    // derived one, which is what the field's placeholder promises anyway.
+    activityIri: single() ? ui.activityIri.value.trim() : '',
+    // A scan has nothing to extract, whatever the checkbox says.
+    extractText: shared.extractText && Boolean(entry.info && entry.info.hasText),
+  };
+}
+
+/**
+ * Identifiers for the batch, made unique.
+ *
+ * Two PDFs called "Onboarding" would otherwise produce two packages with the
+ * same file name, and the second would overwrite the first inside a bundle.
+ */
+function uniqueIdentifiers(entries) {
+  const seen = new Map();
+  return entries.map((entry) => {
+    const wanted = single() && ui.identifier.value.trim()
+      ? safeId(ui.identifier.value.trim(), 'course')
+      : safeId(entry.title, 'course');
+    const count = (seen.get(wanted) || 0) + 1;
+    seen.set(wanted, count);
+    return count === 1 ? wanted : `${wanted}-${count}`;
+  });
+}
+
 /* ---------- build ---------- */
 
 ui.build.addEventListener('click', run);
 
 async function run() {
-  if (busy || !pdfFile) return;
+  const batch = ready();
+  if (busy || !batch.length) return;
 
   const standards = selectedStandards();
   if (!standards.length) {
@@ -347,39 +588,54 @@ async function run() {
   ui.build.disabled = true;
   clearError();
   releaseUrls();
-  built = [];
+  for (const course of courses) course.built = [];
   ui.results.hidden = true;
   ui.resultsList.replaceChildren();
   ui.progress.hidden = false;
 
-  const options = settings();
+  const shared = sharedSettings();
+  const identifiers = uniqueIdentifiers(batch);
 
   try {
-    // Rendering dominates the wall clock, so it gets most of the bar.
+    // Rendering dominates the wall clock, so it gets most of each course's
+    // share of the bar.
     const RENDER_SHARE = 0.75;
+    const span = 1 / batch.length;
 
-    setProgress(0, t('build.reading'));
-    const bytes = await pdfFile.arrayBuffer();
+    for (let c = 0; c < batch.length; c++) {
+      const entry = batch[c];
+      const base = c * span;
+      const options = courseSettings(entry, identifiers[c], shared);
+      const prefix = batch.length > 1
+        ? `${t('build.course', { title: options.title, index: c + 1, total: batch.length })} — `
+        : '';
 
-    const render = await renderPdf(bytes, options, (done, total) => {
-      setProgress((done / total) * RENDER_SHARE, t('build.rendering', { done, total }));
-    });
+      setProgress(base, prefix + t('build.reading'));
+      const bytes = await entry.file.arrayBuffer();
 
-    if (render.title && !ui.title.value.trim()) options.title = render.title;
+      const render = await renderPdf(bytes, options, (done, total) => {
+        setProgress(
+          base + span * RENDER_SHARE * (done / total),
+          prefix + t('build.rendering', { done, total }),
+        );
+      });
 
-    showPreview(render);
+      // Decoration; a batch of them would be a wall of bitmaps.
+      if (batch.length === 1) showPreview(render);
 
-    for (let i = 0; i < standards.length; i++) {
-      const id = standards[i];
-      setProgress(
-        RENDER_SHARE + ((i / standards.length) * (1 - RENDER_SHARE)),
-        t('build.packaging', { standard: id }),
-      );
-      built.push(await buildPackage(render, options, id));
+      for (let i = 0; i < standards.length; i++) {
+        const id = standards[i];
+        setProgress(
+          base + span * (RENDER_SHARE + (i / standards.length) * (1 - RENDER_SHARE)),
+          prefix + t('build.packaging', { standard: id }),
+        );
+        entry.built.push(await buildPackage(render, options, id));
+      }
     }
 
-    setProgress(1, t('build.done', { count: built.length }));
-    showResults(options);
+    const total = batch.reduce((n, entry) => n + entry.built.length, 0);
+    setProgress(1, t('build.done', { count: total }));
+    showResults(batch, standards);
   } catch (err) {
     ui.progress.hidden = true;
     fail(err && err.message ? err.message : String(err));
@@ -428,47 +684,105 @@ function showPreview(render) {
   ui.previewCard.hidden = false;
 }
 
-function showResults(options) {
+/**
+ * The packages, one row each, and a way to take them all.
+ *
+ * One course: a single "everything in one zip" button, as before. Several: one
+ * button per format, each bundling that format's package for every course --
+ * because an LMS imports one zip per course and format, and a batch upload
+ * wants all the SCORM 1.2 ones together, not a mix.
+ */
+function showResults(batch, standards) {
+  const bulk = batch.length > 1;
   const frag = document.createDocumentFragment();
 
-  built.forEach((pkg) => {
-    const item = document.createElement('li');
+  // Two courses in a batch may well share a title -- two decks called
+  // "Onboarding" -- and their rows must still be told apart, so a repeated
+  // title carries its file name too.
+  const titleOf = (entry) => entry.title.trim() || t('course.fallbackTitle');
+  const repeated = new Set(
+    batch.map(titleOf).filter((title, i, all) => all.indexOf(title) !== i),
+  );
 
-    const name = document.createElement('span');
-    name.className = 'results__name';
-    name.textContent = pkg.label;
+  for (const entry of batch) {
+    for (const pkg of entry.built) {
+      const item = document.createElement('li');
 
-    const size = document.createElement('span');
-    size.className = 'results__size';
-    size.textContent = formatBytes(pkg.bytes);
+      if (bulk) {
+        const course = document.createElement('span');
+        course.className = 'results__course';
+        const title = titleOf(entry);
+        course.textContent = repeated.has(title) ? `${title} (${entry.file.name})` : title;
+        course.title = entry.file.name;
+        item.appendChild(course);
+      }
 
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'dl';
-    button.textContent = t('build.download');
-    button.addEventListener('click', () => save(pkg.blob, pkg.filename));
+      const name = document.createElement('span');
+      name.className = 'results__name';
+      name.textContent = pkg.label;
 
-    item.append(name, size, button);
-    frag.appendChild(item);
-  });
+      const size = document.createElement('span');
+      size.className = 'results__size';
+      size.textContent = formatBytes(pkg.bytes);
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'dl';
+      button.textContent = t('build.download');
+      button.addEventListener('click', () => save(pkg.blob, pkg.filename));
+
+      item.append(name, size, button);
+      frag.appendChild(item);
+    }
+  }
 
   ui.resultsList.replaceChildren(frag);
   ui.results.hidden = false;
 
+  const all = batch.flatMap((entry) => entry.built);
+
   // Browsers block a burst of automatic downloads, so several packages get one
   // combined zip rather than one click each.
-  ui.downloadAll.hidden = built.length < 2;
-  ui.downloadAll.onclick = async () => {
-    ui.downloadAll.disabled = true;
-    try {
-      const all = await bundle(built, options.identifier || options.title);
-      save(all.blob, all.filename);
-    } catch (err) {
-      fail(t('build.bundleFailed', { message: err.message }));
-    } finally {
-      ui.downloadAll.disabled = false;
-    }
-  };
+  ui.downloadAll.hidden = bulk || all.length < 2;
+  ui.downloadFormats.hidden = !bulk;
+  ui.downloadFormats.replaceChildren();
+
+  if (!bulk) {
+    const entry = batch[0];
+    ui.downloadAll.onclick = () => bundleAndSave(
+      ui.downloadAll, all, entry.built[0].identifier || entry.title, null,
+    );
+    return;
+  }
+
+  for (const standardId of standards) {
+    const ofKind = all.filter((pkg) => pkg.standard === standardId);
+    if (!ofKind.length) continue;
+    const label = (BY_ID[standardId] && BY_ID[standardId].label) || standardId;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'ghost';
+    button.textContent = t('build.downloadFormat', {
+      standard: label, count: counted(ofKind.length, 'unit.course'),
+    });
+    button.addEventListener('click', () => bundleAndSave(
+      button, ofKind, `${standardId}-${ofKind.length}-courses`,
+      `${standardId}-${ofKind.length}-courses.zip`,
+    ));
+    ui.downloadFormats.appendChild(button);
+  }
+}
+
+async function bundleAndSave(button, packages, name, filename) {
+  button.disabled = true;
+  try {
+    const zip = await bundle(packages, name, filename);
+    save(zip.blob, zip.filename);
+  } catch (err) {
+    fail(t('build.bundleFailed', { message: err.message }));
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function save(blob, filename) {

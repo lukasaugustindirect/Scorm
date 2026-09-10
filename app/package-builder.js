@@ -191,14 +191,28 @@ export async function buildPackage(render, settings, standardId) {
     blob,
     filename: `${identifier}-${standard.id}.zip`,
     label: standard.label,
+    // So a batch can be grouped by kind without parsing file names.
+    standard: standard.id,
+    identifier,
     bytes: blob.size,
   };
 }
 
 /** Wraps several built packages into a single zip, for convenience. */
-export async function bundle(packages, name) {
+/**
+ * Several packages in one zip, so a browser's one-download-per-click rule does
+ * not turn four packages into four clicks.
+ *
+ * @param {string} [filename] the zip's own name; defaults to the single-course
+ *   "<course>-all-packages.zip", which is wrong for a batch grouped by format
+ */
+export async function bundle(packages, name, filename) {
   const zip = new window.JSZip();
   for (const pkg of packages) zip.file(pkg.filename, pkg.blob, STORE);
   const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/zip' });
-  return { blob, filename: `${safeId(name, 'course')}-all-packages.zip`, bytes: blob.size };
+  return {
+    blob,
+    filename: filename || `${safeId(name, 'course')}-all-packages.zip`,
+    bytes: blob.size,
+  };
 }

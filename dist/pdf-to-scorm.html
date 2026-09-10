@@ -339,6 +339,101 @@ code {
    room of its own rather than butting straight up against the last one. */
 .notices:not([hidden]) + .build { margin-top: 1.25rem; }
 
+/* ---- several files: one row per course ---- */
+
+.queue {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: .625rem;
+  text-align: left;
+}
+.queue[hidden] { display: none; }
+.queue__row {
+  padding: .875rem 1rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+.queue__row[data-status="failed"] { border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+.queue__head {
+  display: flex;
+  align-items: baseline;
+  gap: .75rem;
+}
+.queue__file {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: .875rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.queue__remove {
+  flex: 0 0 auto;
+  width: 1.75rem; height: 1.75rem;
+  padding: 0;
+  font: inherit;
+  font-size: 1.125rem;
+  line-height: 1;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-xs);
+  cursor: pointer;
+}
+.queue__remove:hover { color: var(--danger); background: var(--bg-sunk); }
+.queue__fields {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: .5rem;
+  margin-top: .625rem;
+}
+.queue__title, .queue__lang {
+  height: 2.375rem;
+  padding: 0 .75rem;
+  font: inherit;
+  font-size: .9375rem;
+  letter-spacing: inherit;
+  color: var(--ink);
+  background: var(--bg-sunk);
+  border: 1px solid transparent;
+  border-radius: var(--r-xs);
+  transition: border-color .15s, background-color .15s;
+}
+.queue__title { min-width: 0; font-weight: 550; }
+.queue__lang { cursor: pointer; }
+.queue__title:hover, .queue__lang:hover { border-color: var(--line-strong); }
+.queue__title:focus, .queue__lang:focus { background: var(--card); border-color: var(--accent); }
+.queue__notices {
+  margin: .5rem 0 0;
+  padding: 0 0 0 1rem;
+  font-size: .8125rem;
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+.queue__error { margin: .5rem 0 0; font-size: .875rem; color: var(--danger); }
+
+.hint--note { margin: -.5rem 0 1rem; }
+.hint--note[hidden] { display: none; }
+#course-fields[hidden] { display: none; }
+
+/* one bundle per format */
+.downloads { display: flex; flex-wrap: wrap; gap: .5rem; }
+.downloads[hidden] { display: none; }
+
+.results__course {
+  flex: 0 1 40%;
+  min-width: 0;
+  font-size: .9375rem;
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.results__course + .results__name { flex: 0 0 auto; }
+
 /* ---- the one action ---- */
 
 .build {
@@ -719,7 +814,7 @@ input[type="range"]::-moz-range-thumb {
   <section class="hero">
     <h1 class="hero__title" data-i18n="hero.title">Udělejte z PDF e-learningový kurz</h1>
     <p class="hero__sub" data-i18n="hero.sub">
-      Všechny čtyři formáty naráz — SCORM 1.2, SCORM 2004, xAPI, cmi5.
+      Vznikne SCORM 1.2, který bere každý LMS. Další formáty jsou v Nastavení.
       Běží ve vašem prohlížeči, soubor se nikam neodesílá.
     </p>
 
@@ -727,12 +822,14 @@ input[type="range"]::-moz-range-thumb {
       <span class="drop__icon" aria-hidden="true"></span>
       <span class="drop__lead" data-i18n="source.drop">Přetáhněte sem PDF nebo klikněte pro výběr</span>
       <span class="drop__hint" id="drop-hint" data-i18n="source.hint">Nic neopustí váš počítač.</span>
-      <input type="file" id="file" accept="application/pdf,.pdf" hidden>
+      <input type="file" id="file" accept="application/pdf,.pdf" multiple hidden>
     </div>
 
     <p class="filemeta" id="filemeta" hidden></p>
     
     <ul class="notices" id="notices" hidden></ul>
+    
+    <ul class="queue" id="queue" hidden></ul>
 
     <button class="build" id="build" disabled data-i18n="build.action">Vytvořit balíčky</button>
 
@@ -749,6 +846,8 @@ input[type="range"]::-moz-range-thumb {
       <button class="ghost" id="download-all" hidden data-i18n="build.downloadAll">
         Stáhnout vše v jednom ZIP
       </button>
+      
+      <div class="downloads" id="download-formats" hidden></div>
     </div>
   </section>
 
@@ -763,7 +862,8 @@ input[type="range"]::-moz-range-thumb {
 
       <div class="group">
         <h2 class="group__title" data-i18n="course.heading">Údaje o kurzu</h2>
-        <div class="grid">
+        <p class="hint hint--note" id="bulk-note" hidden data-i18n="course.bulkNote"></p>
+        <div class="grid" id="course-fields">
           <p class="field field--wide">
             <label for="title" data-i18n="course.title">Název kurzu</label>
             <input type="text" id="title" data-i18n-placeholder="course.titlePlaceholder">
@@ -799,6 +899,7 @@ input[type="range"]::-moz-range-thumb {
       <div class="group">
         <h2 class="group__title" data-i18n="standards.heading">Formáty k vytvoření</h2>
         <ul class="checks" id="standards">
+          
           <li>
             <label>
               <input type="checkbox" value="scorm12" checked>
@@ -808,21 +909,21 @@ input[type="range"]::-moz-range-thumb {
           </li>
           <li>
             <label>
-              <input type="checkbox" value="scorm2004" checked>
+              <input type="checkbox" value="scorm2004">
               <span class="checks__name">SCORM 2004 4th Edition</span>
               <span class="checks__note" data-i18n="standards.scorm2004note"></span>
             </label>
           </li>
           <li>
             <label>
-              <input type="checkbox" value="xapi" checked>
+              <input type="checkbox" value="xapi">
               <span class="checks__name">xAPI</span>
               <span class="checks__note" data-i18n="standards.xapinote"></span>
             </label>
           </li>
           <li>
             <label>
-              <input type="checkbox" value="cmi5" checked>
+              <input type="checkbox" value="cmi5">
               <span class="checks__name">cmi5</span>
               <span class="checks__note" data-i18n="standards.cmi5note"></span>
             </label>
@@ -1091,7 +1192,7 @@ window.__EMBEDDED_ASSETS = {"player/index.html":"\u003c!doctype html\u003e\n\u00
     else text2 = text2.replace(/\s+/g, " ").trim();
     return { text: text2, looksLikeFilename };
   }
-  function isUsableTitle(title, filename) {
+  function isUsableTitle(title, _filename) {
     const text2 = String(title || "").trim();
     if (text2.length < MIN_TITLE || text2.length > MAX_TITLE) return false;
     if (!/\p{L}/u.test(text2)) return false;
@@ -1099,9 +1200,6 @@ window.__EMBEDDED_ASSETS = {"player/index.html":"\u003c!doctype html\u003e\n\u00
     if (VERSION_ONLY.test(text2)) return false;
     if (DIGEST.test(text2) || UUID.test(text2)) return false;
     if (PLACEHOLDER_TITLE.test(text2)) return false;
-    if (filename && text2.toLowerCase() === titleFromFilename(filename).toLowerCase()) {
-      return false;
-    }
     return true;
   }
   function isUsableHeading(text2) {
@@ -1617,11 +1715,11 @@ ${fileList}
       "app.title": "PDF to SCORM",
       "app.language": "Interface language",
       "hero.title": "Turn a PDF into an e-learning course",
-      "hero.sub": "All four formats at once \u2014 SCORM 1.2, SCORM 2004, xAPI, cmi5. Runs in your browser; the file is never uploaded.",
+      "hero.sub": "You get SCORM 1.2, which every LMS accepts; other formats are under Settings. Runs in your browser; the file is never uploaded.",
       "settings.heading": "Settings",
       "settings.note": "optional",
       "course.fallbackTitle": "Course",
-      "source.drop": "Drop a PDF here, or click to browse",
+      "source.drop": "Drop PDFs here, or click to browse \u2014 one or many",
       "source.hint": "Nothing leaves your computer.",
       "source.reading": "reading\u2026",
       "source.page": "page",
@@ -1687,6 +1785,14 @@ ${fileList}
       "images.text": "Include page text for screen readers",
       "images.textNote": "Each page's text travels along invisibly, so someone using a screen reader can read the course too. Best left on.",
       "build.action": "Build packages",
+      "build.actionMany": "Build packages for {count}",
+      "build.course": "{title} ({index} of {total})",
+      "build.downloadFormat": "Download all {standard} \u2014 {count}",
+      "queue.remove": "Remove",
+      "course.bulkNote": "With several files, each course takes its name and language from its own PDF. Change them in the list above the button.",
+      // Counted nouns, by plural category.
+      "unit.course.one": "course",
+      "unit.course.other": "courses",
       "build.reading": "Reading the PDF\u2026",
       "build.rendering": "Rendering page {done} of {total}\u2026",
       "build.packaging": "Packaging {standard}\u2026",
@@ -1705,11 +1811,11 @@ ${fileList}
       "app.title": "PDF do SCORM",
       "app.language": "Jazyk rozhran\xED",
       "hero.title": "Ud\u011Blejte z PDF e-learningov\xFD kurz",
-      "hero.sub": "V\u0161echny \u010Dty\u0159i form\xE1ty nar\xE1z \u2014 SCORM 1.2, SCORM 2004, xAPI, cmi5. B\u011B\u017E\xED ve va\u0161em prohl\xED\u017Ee\u010Di, soubor se nikam neodes\xEDl\xE1.",
+      "hero.sub": "Vznikne SCORM 1.2, kter\xFD bere ka\u017Ed\xFD LMS. Dal\u0161\xED form\xE1ty jsou v Nastaven\xED. B\u011B\u017E\xED ve va\u0161em prohl\xED\u017Ee\u010Di, soubor se nikam neodes\xEDl\xE1.",
       "settings.heading": "Nastaven\xED",
       "settings.note": "nepovinn\xE9",
       "course.fallbackTitle": "Kurz",
-      "source.drop": "P\u0159et\xE1hn\u011Bte sem PDF nebo klikn\u011Bte pro v\xFDb\u011Br",
+      "source.drop": "P\u0159et\xE1hn\u011Bte sem PDF \u2014 jedno nebo v\xEDc \u2014 nebo klikn\u011Bte pro v\xFDb\u011Br",
       "source.hint": "Nic neopust\xED v\xE1\u0161 po\u010D\xEDta\u010D.",
       "source.reading": "\u010Dten\xED\u2026",
       "source.page": "str\xE1nka",
@@ -1775,6 +1881,15 @@ ${fileList}
       "images.text": "P\u0159ilo\u017Eit text str\xE1nek pro \u010Dte\u010Dky obrazovky",
       "images.textNote": "Text ka\u017Ed\xE9 str\xE1nky putuje s kurzem skryt\u011B, aby si ho mohl p\u0159e\u010D\xEDst i n\u011Bkdo, kdo pou\u017E\xEDv\xE1 \u010Dte\u010Dku obrazovky. Doporu\u010Dujeme nechat zapnut\xE9.",
       "build.action": "Vytvo\u0159it bal\xED\u010Dky",
+      "build.actionMany": "Vytvo\u0159it bal\xED\u010Dky pro {count}",
+      "build.course": "{title} ({index} z {total})",
+      "build.downloadFormat": "St\xE1hnout v\u0161e {standard} \u2014 {count}",
+      "queue.remove": "Odebrat",
+      "course.bulkNote": "U v\xEDce soubor\u016F dostane ka\u017Ed\xFD kurz n\xE1zev a jazyk ze sv\xE9ho PDF. Uprav\xEDte je v seznamu nad tla\u010D\xEDtkem.",
+      // Počítaná podstatná jména podle tvaru množného čísla.
+      "unit.course.one": "kurz",
+      "unit.course.few": "kurzy",
+      "unit.course.other": "kurz\u016F",
       "build.reading": "\u010Cten\xED PDF\u2026",
       "build.rendering": "Vykreslov\xE1n\xED str\xE1nky {done} z {total}\u2026",
       "build.packaging": "Balen\xED {standard}\u2026",
@@ -1845,24 +1960,24 @@ ${fileList}
     const width = String(total).length;
     return `p${String(n).padStart(width, "0")}.${ext}`;
   }
-  async function buildPackage(render, settings2, standardId) {
+  async function buildPackage(render, settings, standardId) {
     const standard = BY_ID[standardId];
     if (!standard) throw new Error(`Unknown standard: ${standardId}`);
     const JSZip = window.JSZip;
     if (!JSZip) throw new Error("JSZip failed to load");
     const zip = new JSZip();
-    const ext = extensionFor(settings2.format);
+    const ext = extensionFor(settings.format);
     const total = render.pages.length;
-    const identifier = id(settings2.identifier || settings2.title, "course");
+    const identifier = id(settings.identifier || settings.title, "course");
     const course = {
       identifier,
-      title: settings2.title || "Course",
-      description: settings2.description || "",
-      language: settings2.language || "en",
-      activityIri: iri(settings2.activityIri, identifier),
-      masteryScore: settings2.masteryScore,
-      moveOn: settings2.moveOn,
-      includeSchemas: Boolean(settings2.includeSchemas) && Boolean(standard.schemaFiles)
+      title: settings.title || "Course",
+      description: settings.description || "",
+      language: settings.language || "en",
+      activityIri: iri(settings.activityIri, identifier),
+      masteryScore: settings.masteryScore,
+      moveOn: settings.moveOn,
+      includeSchemas: Boolean(settings.includeSchemas) && Boolean(standard.schemaFiles)
     };
     for (const file of PLAYER_FILES) {
       zip.file(file.to, await asset(file.from), DEFLATE);
@@ -1878,7 +1993,7 @@ ${fileList}
         src: name,
         w: Math.round(page.width),
         h: Math.round(page.height),
-        text: settings2.extractText ? page.text : ""
+        text: settings.extractText ? page.text : ""
       });
     }
     const content = {
@@ -1892,13 +2007,13 @@ ${fileList}
       // only the language its learners read.
       ui: playerStrings(course.language),
       completion: {
-        rule: settings2.completionRule,
-        threshold: settings2.completionThreshold
+        rule: settings.completionRule,
+        threshold: settings.completionThreshold
       },
       masteryScore: course.masteryScore
     };
     if (standard.id === "xapi") {
-      content.xapi = { perPageStatements: settings2.perPageStatements !== false };
+      content.xapi = { perPageStatements: settings.perPageStatements !== false };
     }
     if (standard.id === "cmi5") {
       content.cmi5 = { moveOn: course.moveOn };
@@ -1923,14 +2038,21 @@ ${fileList}
       blob,
       filename: `${identifier}-${standard.id}.zip`,
       label: standard.label,
+      // So a batch can be grouped by kind without parsing file names.
+      standard: standard.id,
+      identifier,
       bytes: blob.size
     };
   }
-  async function bundle(packages, name) {
+  async function bundle(packages, name, filename) {
     const zip = new window.JSZip();
     for (const pkg of packages) zip.file(pkg.filename, pkg.blob, STORE);
     const blob = await zip.generateAsync({ type: "blob", mimeType: "application/zip" });
-    return { blob, filename: `${id(name, "course")}-all-packages.zip`, bytes: blob.size };
+    return {
+      blob,
+      filename: filename || `${id(name, "course")}-all-packages.zip`,
+      bytes: blob.size
+    };
   }
 
   // app/main.js
@@ -1941,11 +2063,14 @@ ${fileList}
     file: el("file"),
     filemeta: el("filemeta"),
     notices: el("notices"),
+    queue: el("queue"),
     title: el("title"),
     description: el("description"),
     identifier: el("identifier"),
     language: el("language"),
     activityIri: el("activity-iri"),
+    courseFields: el("course-fields"),
+    bulkNote: el("bulk-note"),
     standards: el("standards"),
     completionRule: el("completion-rule"),
     thresholdField: el("threshold-field"),
@@ -1970,18 +2095,24 @@ ${fileList}
     results: el("results"),
     resultsList: el("results-list"),
     downloadAll: el("download-all"),
+    downloadFormats: el("download-formats"),
     previewCard: el("preview-card"),
     preview: el("preview")
   };
   var LANGUAGE_KEY = "pdf-to-scorm.uiLanguage";
-  var pdfFile = null;
-  var pdfInfo = null;
+  var courses = [];
+  var nextId = 1;
   var strings = uiStrings("en");
-  var built = [];
   var objectUrls = [];
   var busy = false;
   var courseLanguagePinned = false;
   var t = (key, values) => fill(strings[key], values);
+  function counted(count, noun) {
+    const form = new Intl.PluralRules(ui.uiLanguage.value).select(count);
+    return `${count} ${t(`${noun}.${form}`) || t(`${noun}.other`)}`;
+  }
+  var single = () => courses.length === 1;
+  var ready = () => courses.filter((c) => c.status === "ready");
   function storedLanguage() {
     try {
       return window.localStorage.getItem(LANGUAGE_KEY) || "";
@@ -1995,25 +2126,33 @@ ${fileList}
     } catch {
     }
   }
-  function initLanguages() {
-    for (const select of [ui.uiLanguage, ui.language]) {
-      select.replaceChildren();
-      for (const language of LANGUAGES) {
-        const option = document.createElement("option");
-        option.value = language.code;
-        option.textContent = language.label;
-        select.appendChild(option);
-      }
+  function languageOptions(select) {
+    select.replaceChildren();
+    for (const language of LANGUAGES) {
+      const option = document.createElement("option");
+      option.value = language.code;
+      option.textContent = language.label;
+      select.appendChild(option);
     }
+  }
+  function initLanguages() {
+    languageOptions(ui.uiLanguage);
+    languageOptions(ui.language);
     const initial = LANGUAGES.some((l) => l.code === storedLanguage()) ? storedLanguage() : LANGUAGES.find((l) => navigator.language.toLowerCase().startsWith(l.code))?.code || "en";
     ui.uiLanguage.value = initial;
     ui.language.value = initial;
     ui.language.addEventListener("change", () => {
       courseLanguagePinned = true;
+      if (single()) courses[0].language = ui.language.value;
     });
     ui.uiLanguage.addEventListener("change", () => {
       rememberLanguage(ui.uiLanguage.value);
-      if (!courseLanguagePinned) ui.language.value = ui.uiLanguage.value;
+      if (!courseLanguagePinned) {
+        ui.language.value = ui.uiLanguage.value;
+        for (const course of courses) {
+          if (!course.languageFromPdf) course.language = ui.uiLanguage.value;
+        }
+      }
       applyLanguage();
     });
     applyLanguage();
@@ -2030,7 +2169,7 @@ ${fileList}
       const value = strings[node.dataset.i18nPlaceholder];
       if (value) node.placeholder = value;
     }
-    if (pdfFile && pdfInfo) describeFile(pdfFile, pdfInfo);
+    refreshIntake();
     ui.uiLanguage.setAttribute("aria-label", t("app.language"));
   }
   ui.drop.addEventListener("click", () => ui.file.click());
@@ -2053,88 +2192,212 @@ ${fileList}
   });
   ui.drop.addEventListener("drop", (event) => {
     event.preventDefault();
-    const file = event.dataTransfer.files && event.dataTransfer.files[0];
-    if (file) accept(file);
+    accept(event.dataTransfer.files);
   });
   ui.file.addEventListener("change", () => {
-    if (ui.file.files[0]) accept(ui.file.files[0]);
+    accept(ui.file.files);
+    ui.file.value = "";
   });
-  function describeFile(file, info) {
-    const count = info.numPages;
-    const unit = t(count === 1 ? "source.page" : "source.pages");
-    ui.filemeta.textContent = `${file.name} \u2014 ${formatBytes(file.size)}, ${count} ${unit}`;
-  }
-  async function accept(file) {
-    const looksLikePdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
-    if (!looksLikePdf) {
-      fail(t("source.notPdf", { name: file.name }));
-      return;
-    }
+  async function accept(fileList) {
+    const files = Array.from(fileList || []);
+    const pdfs = files.filter(
+      (file) => file.type === "application/pdf" || /\.pdf$/i.test(file.name)
+    );
+    const skipped = files.filter((file) => !pdfs.includes(file));
     clearError();
-    pdfFile = file;
-    pdfInfo = null;
-    built = [];
+    if (skipped.length) {
+      fail(t("source.notPdf", { name: skipped.map((f) => f.name).join(", ") }));
+    }
+    if (!pdfs.length) return;
+    releaseUrls();
     ui.results.hidden = true;
+    ui.resultsList.replaceChildren();
     ui.previewCard.hidden = true;
     ui.preview.replaceChildren();
-    ui.filemeta.hidden = false;
-    ui.notices.hidden = true;
-    ui.notices.replaceChildren();
-    ui.filemeta.textContent = `${file.name} \u2014 ${formatBytes(file.size)}, ${t("source.reading")}`;
+    for (const course of courses) course.built = [];
+    const entries = pdfs.map((file) => ({
+      id: nextId++,
+      file,
+      info: null,
+      title: "",
+      description: "",
+      language: ui.language.value,
+      languageFromPdf: false,
+      notices: [],
+      error: "",
+      status: "reading",
+      built: []
+    }));
+    courses.push(...entries);
+    refreshIntake();
+    for (const entry of entries) {
+      await intake(entry);
+      refreshIntake();
+    }
+  }
+  async function intake(entry) {
     try {
-      const info = await peek(await file.arrayBuffer());
-      pdfInfo = info;
-      describeFile(file, info);
-      adoptFromPdf(file, info);
-      ui.build.disabled = false;
+      const info = await peek(await entry.file.arrayBuffer());
+      entry.info = info;
+      adoptFromPdf(entry);
+      entry.status = "ready";
     } catch (err) {
-      pdfFile = null;
-      pdfInfo = null;
-      ui.build.disabled = true;
-      ui.filemeta.textContent = `${file.name} \u2014 ${formatBytes(file.size)}`;
-      fail(describeFailure(err));
+      entry.status = "failed";
+      entry.error = describeFailure(err);
     }
   }
   function describeFailure(err) {
     const key = failureKey(err);
     return key ? t(key) : t("source.openFailed", { message: err && err.message || String(err) });
   }
-  function adoptFromPdf(file, info) {
-    const notes = [];
-    if (!ui.title.value) {
-      const picked = courseTitle({
-        metaTitle: info.title,
-        heading: info.heading,
-        filename: file.name
-      });
-      ui.title.value = picked.title;
-      if (picked.source === "page") {
-        notes.push(t("notice.titleFromPage", { title: picked.title }));
-      } else if (picked.source === "filename") {
-        notes.push(t("notice.titleFromFile", { title: picked.title }));
-      }
+  function adoptFromPdf(entry) {
+    const { file, info } = entry;
+    entry.notices = [];
+    const picked = courseTitle({
+      metaTitle: info.title,
+      heading: info.heading,
+      filename: file.name
+    });
+    entry.title = picked.title;
+    if (picked.source === "page") {
+      entry.notices.push({ key: "notice.titleFromPage", values: { title: picked.title } });
+    } else if (picked.source === "filename") {
+      entry.notices.push({ key: "notice.titleFromFile", values: { title: picked.title } });
     }
-    if (!ui.description.value && info.subject) ui.description.value = info.subject;
+    if (info.subject) entry.description = info.subject;
     if (!courseLanguagePinned) {
       const declared = courseLanguage(info.language, LANGUAGES.map((l) => l.code));
-      if (declared && declared !== ui.language.value) {
-        ui.language.value = declared;
-        notes.push(t("notice.language", { language: t(`lang.${declared}`) || declared }));
+      if (declared) {
+        entry.languageFromPdf = true;
+        if (declared !== entry.language) {
+          entry.language = declared;
+          entry.notices.push({ key: "notice.language", values: { lang: declared } });
+        }
       }
     }
-    if (!info.hasText) {
-      ui.extractText.checked = false;
-      notes.push(t("notice.scanned"));
+    if (!info.hasText) entry.notices.push({ key: "notice.scanned" });
+  }
+  function noticeText(notice) {
+    if (notice.key === "notice.language") {
+      return t("notice.language", { language: t(`lang.${notice.values.lang}`) || notice.values.lang });
     }
-    if (notes.length) {
-      notes.push(t("notice.settings"));
-      ui.notices.replaceChildren(...notes.map((text2) => {
-        const li = document.createElement("li");
-        li.textContent = text2;
-        return li;
-      }));
-      ui.notices.hidden = false;
+    return t(notice.key, notice.values);
+  }
+  function fileLine(entry) {
+    const size = formatBytes(entry.file.size);
+    if (entry.status === "reading") return `${entry.file.name} \u2014 ${size}, ${t("source.reading")}`;
+    if (entry.status === "failed") return `${entry.file.name} \u2014 ${size}`;
+    const count = entry.info.numPages;
+    return `${entry.file.name} \u2014 ${size}, ${count} ${t(count === 1 ? "source.page" : "source.pages")}`;
+  }
+  function refreshIntake() {
+    const bulk = courses.length > 1;
+    ui.filemeta.hidden = bulk || !courses.length;
+    ui.notices.hidden = true;
+    ui.queue.hidden = !bulk;
+    ui.courseFields.hidden = bulk;
+    ui.bulkNote.hidden = !bulk;
+    if (single()) {
+      const entry = courses[0];
+      ui.filemeta.textContent = fileLine(entry);
+      if (entry.status === "failed") {
+        fail(entry.error);
+      } else if (entry.status === "ready") {
+        mirrorToFields(entry);
+        const notes = entry.notices.map(noticeText);
+        if (!entry.info.hasText) ui.extractText.checked = false;
+        if (notes.length) {
+          notes.push(t("notice.settings"));
+          ui.notices.replaceChildren(...notes.map((text2) => {
+            const li = document.createElement("li");
+            li.textContent = text2;
+            return li;
+          }));
+          ui.notices.hidden = false;
+        }
+      }
     }
+    if (bulk) renderQueue();
+    const anyReady = ready().length > 0;
+    ui.build.disabled = busy || !anyReady;
+    ui.build.textContent = bulk && anyReady ? t("build.actionMany", { count: counted(ready().length, "unit.course") }) : t("build.action");
+  }
+  function mirrorToFields(entry) {
+    ui.title.value = entry.title;
+    ui.description.value = entry.description;
+    ui.language.value = entry.language;
+  }
+  ui.title.addEventListener("input", () => {
+    if (single()) courses[0].title = ui.title.value;
+  });
+  ui.description.addEventListener("input", () => {
+    if (single()) courses[0].description = ui.description.value;
+  });
+  function renderQueue() {
+    const frag = document.createDocumentFragment();
+    for (const entry of courses) {
+      const row = document.createElement("li");
+      row.className = "queue__row";
+      row.dataset.status = entry.status;
+      const file = document.createElement("div");
+      file.className = "queue__file";
+      file.textContent = fileLine(entry);
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "queue__remove";
+      remove.title = t("queue.remove");
+      remove.setAttribute("aria-label", `${t("queue.remove")}: ${entry.file.name}`);
+      remove.textContent = "\xD7";
+      remove.addEventListener("click", () => {
+        courses = courses.filter((c) => c !== entry);
+        refreshIntake();
+      });
+      const head = document.createElement("div");
+      head.className = "queue__head";
+      head.append(file, remove);
+      row.appendChild(head);
+      if (entry.status === "failed") {
+        const error = document.createElement("p");
+        error.className = "queue__error";
+        error.textContent = entry.error;
+        row.appendChild(error);
+      }
+      if (entry.status === "ready") {
+        const fields = document.createElement("div");
+        fields.className = "queue__fields";
+        const title = document.createElement("input");
+        title.type = "text";
+        title.className = "queue__title";
+        title.value = entry.title;
+        title.setAttribute("aria-label", t("course.title"));
+        title.addEventListener("input", () => {
+          entry.title = title.value;
+        });
+        const language = document.createElement("select");
+        language.className = "queue__lang";
+        languageOptions(language);
+        language.value = entry.language;
+        language.setAttribute("aria-label", t("course.language"));
+        language.addEventListener("change", () => {
+          entry.language = language.value;
+          entry.languageFromPdf = true;
+        });
+        fields.append(title, language);
+        row.appendChild(fields);
+        if (entry.notices.length) {
+          const notes = document.createElement("ul");
+          notes.className = "queue__notices";
+          for (const notice of entry.notices) {
+            const li = document.createElement("li");
+            li.textContent = noticeText(notice);
+            notes.appendChild(li);
+          }
+          row.appendChild(notes);
+        }
+      }
+      frag.appendChild(row);
+    }
+    ui.queue.replaceChildren(frag);
   }
   ui.quality.addEventListener("input", () => {
     ui.qualityOut.value = ui.quality.value;
@@ -2144,23 +2407,18 @@ ${fileList}
   });
   ui.standards.addEventListener("change", syncStandardOptions);
   function syncStandardOptions() {
-    const chosen = selectedStandards();
-    ui.moveOnField.hidden = !chosen.includes("cmi5");
-    ui.perPageRow.hidden = !chosen.includes("xapi");
-    ui.schemasRow.hidden = !chosen.some((id2) => id2.startsWith("scorm"));
+    const picked = selectedStandards();
+    ui.moveOnField.hidden = !picked.includes("cmi5");
+    ui.perPageRow.hidden = !picked.includes("xapi");
+    ui.schemasRow.hidden = !picked.some((id2) => id2 === "scorm12" || id2 === "scorm2004");
   }
   function selectedStandards() {
     return Array.from(ui.standards.querySelectorAll('input[type="checkbox"]:checked')).map((box) => box.value);
   }
-  function settings() {
+  function sharedSettings() {
     const masteryPercent = ui.mastery.value.trim();
     const parsedMastery = masteryPercent === "" ? null : Number(masteryPercent);
     return {
-      title: ui.title.value.trim() || t("course.fallbackTitle"),
-      description: ui.description.value.trim(),
-      identifier: ui.identifier.value.trim(),
-      language: ui.language.value,
-      activityIri: ui.activityIri.value.trim(),
       completionRule: ui.completionRule.value,
       completionThreshold: Number(ui.threshold.value) || 80,
       // The UI asks for a percentage because that is how people think about a
@@ -2176,9 +2434,33 @@ ${fileList}
       includeSchemas: ui.includeSchemas.checked
     };
   }
+  function courseSettings(entry, identifier, shared) {
+    return {
+      ...shared,
+      title: entry.title.trim() || t("course.fallbackTitle"),
+      description: entry.description.trim(),
+      identifier,
+      language: entry.language,
+      // The IRI field is a single-course affair; in a batch each course gets the
+      // derived one, which is what the field's placeholder promises anyway.
+      activityIri: single() ? ui.activityIri.value.trim() : "",
+      // A scan has nothing to extract, whatever the checkbox says.
+      extractText: shared.extractText && Boolean(entry.info && entry.info.hasText)
+    };
+  }
+  function uniqueIdentifiers(entries) {
+    const seen = /* @__PURE__ */ new Map();
+    return entries.map((entry) => {
+      const wanted = single() && ui.identifier.value.trim() ? id(ui.identifier.value.trim(), "course") : id(entry.title, "course");
+      const count = (seen.get(wanted) || 0) + 1;
+      seen.set(wanted, count);
+      return count === 1 ? wanted : `${wanted}-${count}`;
+    });
+  }
   ui.build.addEventListener("click", run);
   async function run() {
-    if (busy || !pdfFile) return;
+    const batch = ready();
+    if (busy || !batch.length) return;
     const standards = selectedStandards();
     if (!standards.length) {
       fail(t("build.noStandards"));
@@ -2188,30 +2470,41 @@ ${fileList}
     ui.build.disabled = true;
     clearError();
     releaseUrls();
-    built = [];
+    for (const course of courses) course.built = [];
     ui.results.hidden = true;
     ui.resultsList.replaceChildren();
     ui.progress.hidden = false;
-    const options = settings();
+    const shared = sharedSettings();
+    const identifiers = uniqueIdentifiers(batch);
     try {
       const RENDER_SHARE = 0.75;
-      setProgress(0, t("build.reading"));
-      const bytes = await pdfFile.arrayBuffer();
-      const render = await renderPdf(bytes, options, (done, total) => {
-        setProgress(done / total * RENDER_SHARE, t("build.rendering", { done, total }));
-      });
-      if (render.title && !ui.title.value.trim()) options.title = render.title;
-      showPreview(render);
-      for (let i = 0; i < standards.length; i++) {
-        const id2 = standards[i];
-        setProgress(
-          RENDER_SHARE + i / standards.length * (1 - RENDER_SHARE),
-          t("build.packaging", { standard: id2 })
-        );
-        built.push(await buildPackage(render, options, id2));
+      const span = 1 / batch.length;
+      for (let c = 0; c < batch.length; c++) {
+        const entry = batch[c];
+        const base = c * span;
+        const options = courseSettings(entry, identifiers[c], shared);
+        const prefix = batch.length > 1 ? `${t("build.course", { title: options.title, index: c + 1, total: batch.length })} \u2014 ` : "";
+        setProgress(base, prefix + t("build.reading"));
+        const bytes = await entry.file.arrayBuffer();
+        const render = await renderPdf(bytes, options, (done, total2) => {
+          setProgress(
+            base + span * RENDER_SHARE * (done / total2),
+            prefix + t("build.rendering", { done, total: total2 })
+          );
+        });
+        if (batch.length === 1) showPreview(render);
+        for (let i = 0; i < standards.length; i++) {
+          const id2 = standards[i];
+          setProgress(
+            base + span * (RENDER_SHARE + i / standards.length * (1 - RENDER_SHARE)),
+            prefix + t("build.packaging", { standard: id2 })
+          );
+          entry.built.push(await buildPackage(render, options, id2));
+        }
       }
-      setProgress(1, t("build.done", { count: built.length }));
-      showResults(options);
+      const total = batch.reduce((n, entry) => n + entry.built.length, 0);
+      setProgress(1, t("build.done", { count: total }));
+      showResults(batch, standards);
     } catch (err) {
       ui.progress.hidden = true;
       fail(err && err.message ? err.message : String(err));
@@ -2251,38 +2544,85 @@ ${fileList}
     ui.preview.replaceChildren(frag);
     ui.previewCard.hidden = false;
   }
-  function showResults(options) {
+  function showResults(batch, standards) {
+    const bulk = batch.length > 1;
     const frag = document.createDocumentFragment();
-    built.forEach((pkg) => {
-      const item = document.createElement("li");
-      const name = document.createElement("span");
-      name.className = "results__name";
-      name.textContent = pkg.label;
-      const size = document.createElement("span");
-      size.className = "results__size";
-      size.textContent = formatBytes(pkg.bytes);
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "dl";
-      button.textContent = t("build.download");
-      button.addEventListener("click", () => save(pkg.blob, pkg.filename));
-      item.append(name, size, button);
-      frag.appendChild(item);
-    });
+    const titleOf = (entry) => entry.title.trim() || t("course.fallbackTitle");
+    const repeated = new Set(
+      batch.map(titleOf).filter((title, i, all2) => all2.indexOf(title) !== i)
+    );
+    for (const entry of batch) {
+      for (const pkg of entry.built) {
+        const item = document.createElement("li");
+        if (bulk) {
+          const course = document.createElement("span");
+          course.className = "results__course";
+          const title = titleOf(entry);
+          course.textContent = repeated.has(title) ? `${title} (${entry.file.name})` : title;
+          course.title = entry.file.name;
+          item.appendChild(course);
+        }
+        const name = document.createElement("span");
+        name.className = "results__name";
+        name.textContent = pkg.label;
+        const size = document.createElement("span");
+        size.className = "results__size";
+        size.textContent = formatBytes(pkg.bytes);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "dl";
+        button.textContent = t("build.download");
+        button.addEventListener("click", () => save(pkg.blob, pkg.filename));
+        item.append(name, size, button);
+        frag.appendChild(item);
+      }
+    }
     ui.resultsList.replaceChildren(frag);
     ui.results.hidden = false;
-    ui.downloadAll.hidden = built.length < 2;
-    ui.downloadAll.onclick = async () => {
-      ui.downloadAll.disabled = true;
-      try {
-        const all = await bundle(built, options.identifier || options.title);
-        save(all.blob, all.filename);
-      } catch (err) {
-        fail(t("build.bundleFailed", { message: err.message }));
-      } finally {
-        ui.downloadAll.disabled = false;
-      }
-    };
+    const all = batch.flatMap((entry) => entry.built);
+    ui.downloadAll.hidden = bulk || all.length < 2;
+    ui.downloadFormats.hidden = !bulk;
+    ui.downloadFormats.replaceChildren();
+    if (!bulk) {
+      const entry = batch[0];
+      ui.downloadAll.onclick = () => bundleAndSave(
+        ui.downloadAll,
+        all,
+        entry.built[0].identifier || entry.title,
+        null
+      );
+      return;
+    }
+    for (const standardId of standards) {
+      const ofKind = all.filter((pkg) => pkg.standard === standardId);
+      if (!ofKind.length) continue;
+      const label = BY_ID[standardId] && BY_ID[standardId].label || standardId;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "ghost";
+      button.textContent = t("build.downloadFormat", {
+        standard: label,
+        count: counted(ofKind.length, "unit.course")
+      });
+      button.addEventListener("click", () => bundleAndSave(
+        button,
+        ofKind,
+        `${standardId}-${ofKind.length}-courses`,
+        `${standardId}-${ofKind.length}-courses.zip`
+      ));
+      ui.downloadFormats.appendChild(button);
+    }
+  }
+  async function bundleAndSave(button, packages, name, filename) {
+    button.disabled = true;
+    try {
+      const zip = await bundle(packages, name, filename);
+      save(zip.blob, zip.filename);
+    } catch (err) {
+      fail(t("build.bundleFailed", { message: err.message }));
+    } finally {
+      button.disabled = false;
+    }
   }
   function save(blob, filename) {
     const url = URL.createObjectURL(blob);

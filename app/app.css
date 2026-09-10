@@ -293,6 +293,101 @@ code {
    room of its own rather than butting straight up against the last one. */
 .notices:not([hidden]) + .build { margin-top: 1.25rem; }
 
+/* ---- several files: one row per course ---- */
+
+.queue {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: .625rem;
+  text-align: left;
+}
+.queue[hidden] { display: none; }
+.queue__row {
+  padding: .875rem 1rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+.queue__row[data-status="failed"] { border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+.queue__head {
+  display: flex;
+  align-items: baseline;
+  gap: .75rem;
+}
+.queue__file {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: .875rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.queue__remove {
+  flex: 0 0 auto;
+  width: 1.75rem; height: 1.75rem;
+  padding: 0;
+  font: inherit;
+  font-size: 1.125rem;
+  line-height: 1;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-xs);
+  cursor: pointer;
+}
+.queue__remove:hover { color: var(--danger); background: var(--bg-sunk); }
+.queue__fields {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: .5rem;
+  margin-top: .625rem;
+}
+.queue__title, .queue__lang {
+  height: 2.375rem;
+  padding: 0 .75rem;
+  font: inherit;
+  font-size: .9375rem;
+  letter-spacing: inherit;
+  color: var(--ink);
+  background: var(--bg-sunk);
+  border: 1px solid transparent;
+  border-radius: var(--r-xs);
+  transition: border-color .15s, background-color .15s;
+}
+.queue__title { min-width: 0; font-weight: 550; }
+.queue__lang { cursor: pointer; }
+.queue__title:hover, .queue__lang:hover { border-color: var(--line-strong); }
+.queue__title:focus, .queue__lang:focus { background: var(--card); border-color: var(--accent); }
+.queue__notices {
+  margin: .5rem 0 0;
+  padding: 0 0 0 1rem;
+  font-size: .8125rem;
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+.queue__error { margin: .5rem 0 0; font-size: .875rem; color: var(--danger); }
+
+.hint--note { margin: -.5rem 0 1rem; }
+.hint--note[hidden] { display: none; }
+#course-fields[hidden] { display: none; }
+
+/* one bundle per format */
+.downloads { display: flex; flex-wrap: wrap; gap: .5rem; }
+.downloads[hidden] { display: none; }
+
+.results__course {
+  flex: 0 1 40%;
+  min-width: 0;
+  font-size: .9375rem;
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.results__course + .results__name { flex: 0 0 auto; }
+
 /* ---- the one action ---- */
 
 .build {

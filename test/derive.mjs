@@ -76,8 +76,14 @@ for (const value of good) {
   check(isUsableTitle(cleanMetaTitle(value), 'whatever.pdf'),
         `keeps ${JSON.stringify(value)}`);
 }
-check(!isUsableTitle('kurz gdpr', 'kurz_gdpr.pdf'),
-      'rejects a title that only repeats the file name');
+// Caught from a screenshot: a /Title of "Skoleni BOZP 2026" in a file called
+// Skoleni_BOZP_2026.pdf was being thrown away as "adding nothing", and the
+// course got named after the biggest text on page one instead.
+check(isUsableTitle('kurz gdpr', 'kurz_gdpr.pdf'),
+      'keeps a title that agrees with the file name -- agreement is not junk');
+eq(courseTitle({ metaTitle: 'Skoleni BOZP 2026', heading: 'Fixture page 1',
+                 filename: 'Skoleni_BOZP_2026.pdf' }).title,
+   'Skoleni BOZP 2026', 'real: and the page heading does not get to overrule it');
 check(!isUsableTitle('x'.repeat(200), 'a.pdf'),
       'rejects a title too long to name a file with');
 

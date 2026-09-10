@@ -142,6 +142,22 @@ own siblings. The shipped player deliberately does *not* carry it: 175 kB in
 every package a learner downloads is not worth it for a page-turner whose text
 lives inside the page images.
 
+## Several PDFs at once
+
+Drop a folder's worth. Each PDF becomes its own course, with its own title and
+language worked out from its own document, shown in a row you can edit in
+place; the per-course fields under Settings stand down, with a note saying
+where those now live. Two PDFs that work out to the same title get distinct
+identifiers (`Onboarding`, `Onboarding-2`), so neither package overwrites the
+other, and their rows carry the file name so they can be told apart.
+
+Downloads come **one bundle per format** — `scorm12-5-courses.zip` holding
+five packages — because an LMS imports one zip per course and format, and a bulk
+upload wants all the SCORM 1.2 ones together rather than a mix.
+
+Files are read one after another, not all at once: pdf.js holds each document in
+memory while it is open, and twenty opened together is how a browser tab dies.
+
 ## What it works out for itself
 
 Nobody should have to look inside a PDF to find out what the tool will do with
@@ -181,9 +197,11 @@ pdf.js threw.
 ## Options worth understanding
 
 You do not have to read any of this to use the tool. Drop a PDF, press the
-button, and all four packages are built with defaults that work; the options
-below sit behind the folded **Nastavení / Settings** panel for the cases where
-the defaults are not what you want.
+button, and a **SCORM 1.2** package is built with defaults that work — that is
+the one format every LMS accepts, and one zip is what a person expects to get.
+SCORM 2004, xAPI and cmi5 are one tick away under the folded
+**Nastavení / Settings** panel, along with the options below for the cases
+where the defaults are not what you want.
 
 **Completion.** Default is "every page viewed". You can instead require a
 percentage of pages, or mark complete the moment the course opens. Whichever
@@ -317,10 +335,14 @@ A real end-to-end run, not unit tests around mocks. It:
 8. drives the converter against PDFs that are **not** the happy case
    (`test/awkward.mjs`): no title, a title Word invented, a scan, an English
    document in a Czech interface, a truncated file — asserting the name, the
-   language, the switched-off option and the sentence the interface shows.
+   language, the switched-off option and the sentence the interface shows,
+9. drops three PDFs at once (`test/bulk.mjs`), two of them sharing a title,
+   edits one title in place, builds, and opens the SCORM 1.2 bundle to check it
+   holds exactly one correctly named package per course with the edited title
+   and each document's own language.
 
-Current state: **491 assertions, all passing** (82 rule checks in plain
-Node, 117 run-time in the browser, 292 structural).
+Current state: **511 assertions, all passing** (82 rule checks in plain
+Node, 137 run-time in the browser, 292 structural).
 
 Step 6 needs `xmllint`; without it the schema checks are skipped loudly rather
 than passing quietly. Everything else needs only Node and, for the build, the

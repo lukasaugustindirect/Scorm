@@ -81,12 +81,12 @@ export const UI_STRINGS = {
     'app.language': 'Interface language',
 
     'hero.title': 'Turn a PDF into an e-learning course',
-    'hero.sub': 'All four formats at once — SCORM 1.2, SCORM 2004, xAPI, cmi5. '
-      + 'Runs in your browser; the file is never uploaded.',
+    'hero.sub': 'You get SCORM 1.2, which every LMS accepts; other formats are '
+      + 'under Settings. Runs in your browser; the file is never uploaded.',
     'settings.heading': 'Settings',
     'settings.note': 'optional',
     'course.fallbackTitle': 'Course',
-    'source.drop': 'Drop a PDF here, or click to browse',
+    'source.drop': 'Drop PDFs here, or click to browse — one or many',
     'source.hint': 'Nothing leaves your computer.',
     'source.reading': 'reading…',
     'source.page': 'page',
@@ -170,6 +170,15 @@ export const UI_STRINGS = {
     'images.textNote': "Each page's text travels along invisibly, so someone using a " +
       'screen reader can read the course too. Best left on.',
     'build.action': 'Build packages',
+    'build.actionMany': 'Build packages for {count}',
+    'build.course': '{title} ({index} of {total})',
+    'build.downloadFormat': 'Download all {standard} — {count}',
+    'queue.remove': 'Remove',
+    'course.bulkNote': 'With several files, each course takes its name and ' +
+      'language from its own PDF. Change them in the list above the button.',
+    // Counted nouns, by plural category.
+    'unit.course.one': 'course',
+    'unit.course.other': 'courses',
     'build.reading': 'Reading the PDF…',
     'build.rendering': 'Rendering page {done} of {total}…',
     'build.packaging': 'Packaging {standard}…',
@@ -191,12 +200,12 @@ export const UI_STRINGS = {
     'app.language': 'Jazyk rozhraní',
 
     'hero.title': 'Udělejte z PDF e-learningový kurz',
-    'hero.sub': 'Všechny čtyři formáty naráz — SCORM 1.2, SCORM 2004, xAPI, cmi5. '
-      + 'Běží ve vašem prohlížeči, soubor se nikam neodesílá.',
+    'hero.sub': 'Vznikne SCORM 1.2, který bere každý LMS. Další formáty jsou '
+      + 'v Nastavení. Běží ve vašem prohlížeči, soubor se nikam neodesílá.',
     'settings.heading': 'Nastavení',
     'settings.note': 'nepovinné',
     'course.fallbackTitle': 'Kurz',
-    'source.drop': 'Přetáhněte sem PDF nebo klikněte pro výběr',
+    'source.drop': 'Přetáhněte sem PDF — jedno nebo víc — nebo klikněte pro výběr',
     'source.hint': 'Nic neopustí váš počítač.',
     'source.reading': 'čtení…',
     'source.page': 'stránka',
@@ -280,6 +289,16 @@ export const UI_STRINGS = {
     'images.textNote': 'Text každé stránky putuje s kurzem skrytě, aby si ho mohl ' +
       'přečíst i někdo, kdo používá čtečku obrazovky. Doporučujeme nechat zapnuté.',
     'build.action': 'Vytvořit balíčky',
+    'build.actionMany': 'Vytvořit balíčky pro {count}',
+    'build.course': '{title} ({index} z {total})',
+    'build.downloadFormat': 'Stáhnout vše {standard} — {count}',
+    'queue.remove': 'Odebrat',
+    'course.bulkNote': 'U více souborů dostane každý kurz název a jazyk ze ' +
+      'svého PDF. Upravíte je v seznamu nad tlačítkem.',
+    // Počítaná podstatná jména podle tvaru množného čísla.
+    'unit.course.one': 'kurz',
+    'unit.course.few': 'kurzy',
+    'unit.course.other': 'kurzů',
     'build.reading': 'Čtení PDF…',
     'build.rendering': 'Vykreslování stránky {done} z {total}…',
     'build.packaging': 'Balení {standard}…',

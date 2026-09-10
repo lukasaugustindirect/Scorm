@@ -19,6 +19,7 @@ import { testStatements } from './statements.mjs';
 import { testSingleFile } from './single.mjs';
 import { testOffline } from './offline.mjs';
 import { testAwkward } from './awkward.mjs';
+import { testBulk } from './bulk.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -241,6 +242,18 @@ async function main() {
     // of the run.
     await page.click('summary.settings__summary');
 
+    // SCORM 1.2 alone is the default -- one zip is what a person expects -- and
+    // that is asserted here; the rest of the run ticks the other three so the
+    // whole matrix is still built and verified.
+    const defaults = await page.evaluate(() =>
+      [...document.querySelectorAll('#standards input:checked')].map((i) => i.value));
+    if (JSON.stringify(defaults) !== JSON.stringify(['scorm12'])) {
+      problems.push(`default standards should be SCORM 1.2 only, got ${defaults.join(', ')}`);
+    }
+    for (const id of ['scorm2004', 'xapi', 'cmi5']) {
+      await page.check(`#standards input[value="${id}"]`);
+    }
+
     const title = await page.inputValue('#title');
     if (title !== FIXTURE_TITLE) {
       problems.push(`title not read from PDF metadata, got: ${JSON.stringify(title)}`);
@@ -351,6 +364,8 @@ async function main() {
       // Word invented, no text layer, a declared language, a truncated file.
       // This reloads the page, so it goes last.
       problems.push(...await testAwkward(page, OUT, base));
+      // Several PDFs at once, grouped into one bundle per format.
+      problems.push(...await testBulk(page, OUT, base));
     }
   } finally {
     await browser.close();

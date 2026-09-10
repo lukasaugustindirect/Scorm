@@ -93,6 +93,9 @@ export async function testSingleFile(browser, outDir, repoRoot, pdfPath, pageCou
     );
     expect(closed, 'settings stay folded away in the single file');
     await page.click('summary.settings__summary');
+    for (const id of ['scorm2004', 'xapi', 'cmi5']) {
+      await page.check(`#standards input[value="${id}"]`);
+    }
 
     await page.fill('#identifier', 'fixture-course');
     await page.fill('#activity-iri', 'https://example.com/courses/fixture');

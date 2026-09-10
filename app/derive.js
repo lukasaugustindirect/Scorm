@@ -129,7 +129,7 @@ export function cleanMetaTitle(raw) {
  * and the file name; being wrong the other way ships a course called
  * "Presentation1".
  */
-export function isUsableTitle(title, filename) {
+export function isUsableTitle(title, _filename) {
   const text = String(title || '').trim();
   if (text.length < MIN_TITLE || text.length > MAX_TITLE) return false;
   if (!/\p{L}/u.test(text)) return false;
@@ -137,10 +137,11 @@ export function isUsableTitle(title, filename) {
   if (VERSION_ONLY.test(text)) return false;
   if (DIGEST.test(text) || UUID.test(text)) return false;
   if (PLACEHOLDER_TITLE.test(text)) return false;
-  // Identical to the file name adds nothing, so prefer the page heading.
-  if (filename && text.toLowerCase() === titleFromFilename(filename).toLowerCase()) {
-    return false;
-  }
+  // A /Title that matches the file name is NOT junk. An earlier version treated
+  // it as adding nothing and fell through to the page heading, which replaced
+  // "Skoleni BOZP 2026" with whatever was set biggest on page one. Two sources
+  // agreeing is corroboration; the file name was almost certainly typed from
+  // the title by a person.
   return true;
 }
 

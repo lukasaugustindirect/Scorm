@@ -24,7 +24,7 @@
   <section class="hero">
     <h1 class="hero__title" data-i18n="hero.title">Udělejte z PDF e-learningový kurz</h1>
     <p class="hero__sub" data-i18n="hero.sub">
-      Všechny čtyři formáty naráz — SCORM 1.2, SCORM 2004, xAPI, cmi5.
+      Vznikne SCORM 1.2, který bere každý LMS. Další formáty jsou v Nastavení.
       Běží ve vašem prohlížeči, soubor se nikam neodesílá.
     </p>
 
@@ -32,12 +32,15 @@
       <span class="drop__icon" aria-hidden="true"></span>
       <span class="drop__lead" data-i18n="source.drop">Přetáhněte sem PDF nebo klikněte pro výběr</span>
       <span class="drop__hint" id="drop-hint" data-i18n="source.hint">Nic neopustí váš počítač.</span>
-      <input type="file" id="file" accept="application/pdf,.pdf" hidden>
+      <input type="file" id="file" accept="application/pdf,.pdf" multiple hidden>
     </div>
 
     <p class="filemeta" id="filemeta" hidden></p>
     <!-- What the tool worked out about the PDF on its own. Filled by main.js. -->
     <ul class="notices" id="notices" hidden></ul>
+    <!-- Several files: one row per course, each with its own title and
+         language, because one form cannot hold five of them. -->
+    <ul class="queue" id="queue" hidden></ul>
 
     <button class="build" id="build" disabled data-i18n="build.action">Vytvořit balíčky</button>
 
@@ -54,6 +57,9 @@
       <button class="ghost" id="download-all" hidden data-i18n="build.downloadAll">
         Stáhnout vše v jednom ZIP
       </button>
+      <!-- A batch: one bundle per format, since an LMS imports one zip per
+           course and format and a bulk upload wants them sorted by kind. -->
+      <div class="downloads" id="download-formats" hidden></div>
     </div>
   </section>
 
@@ -69,7 +75,8 @@
 
       <div class="group">
         <h2 class="group__title" data-i18n="course.heading">Údaje o kurzu</h2>
-        <div class="grid">
+        <p class="hint hint--note" id="bulk-note" hidden data-i18n="course.bulkNote"></p>
+        <div class="grid" id="course-fields">
           <p class="field field--wide">
             <label for="title" data-i18n="course.title">Název kurzu</label>
             <input type="text" id="title" data-i18n-placeholder="course.titlePlaceholder">
@@ -105,6 +112,8 @@
       <div class="group">
         <h2 class="group__title" data-i18n="standards.heading">Formáty k vytvoření</h2>
         <ul class="checks" id="standards">
+          <!-- SCORM 1.2 alone by default: it is what every LMS accepts, and one
+               zip is what a person expects to get. The rest are one tick away. -->
           <li>
             <label>
               <input type="checkbox" value="scorm12" checked>
@@ -114,21 +123,21 @@
           </li>
           <li>
             <label>
-              <input type="checkbox" value="scorm2004" checked>
+              <input type="checkbox" value="scorm2004">
               <span class="checks__name">SCORM 2004 4th Edition</span>
               <span class="checks__note" data-i18n="standards.scorm2004note"></span>
             </label>
           </li>
           <li>
             <label>
-              <input type="checkbox" value="xapi" checked>
+              <input type="checkbox" value="xapi">
               <span class="checks__name">xAPI</span>
               <span class="checks__note" data-i18n="standards.xapinote"></span>
             </label>
           </li>
           <li>
             <label>
-              <input type="checkbox" value="cmi5" checked>
+              <input type="checkbox" value="cmi5">
               <span class="checks__name">cmi5</span>
               <span class="checks__note" data-i18n="standards.cmi5note"></span>
             </label>
