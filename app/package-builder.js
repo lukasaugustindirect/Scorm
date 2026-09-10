@@ -81,9 +81,9 @@ async function asset(path) {
   return playerCache.get(path);
 }
 
-function pageName(n, total, ext) {
+function pageName(n, total, ext, prefix = 'p') {
   const width = String(total).length;
-  return `p${String(n).padStart(width, '0')}.${ext}`;
+  return `${prefix}${String(n).padStart(width, '0')}.${ext}`;
 }
 
 /**
@@ -127,13 +127,23 @@ export async function buildPackage(render, settings, standardId) {
   for (const page of render.pages) {
     const name = pageName(page.pageNumber, total, ext);
     zip.file(`content/${name}`, page.blob, STORE);
-    pages.push({
+
+    // A small copy for the page list. Without it the list pulls every
+    // full-resolution page at once -- 4.5 MB on a real 38-page deck -- to draw
+    // them a hundred pixels wide.
+    const entry = {
       n: page.pageNumber,
       src: name,
       w: Math.round(page.width),
       h: Math.round(page.height),
       text: settings.extractText ? page.text : '',
-    });
+    };
+    if (page.thumb) {
+      const thumbName = pageName(page.pageNumber, total, extensionFor(page.thumb.type), 'thumb');
+      zip.file(`content/${thumbName}`, page.thumb, STORE);
+      entry.thumb = thumbName;
+    }
+    pages.push(entry);
   }
 
   const content = {

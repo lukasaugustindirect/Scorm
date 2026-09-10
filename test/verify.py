@@ -173,6 +173,8 @@ def verify_common(zf, standard, page_count):
     check(not missing_images, f"{standard}: every page image is present",
           str(missing_images))
 
+    verify_thumbnails(zf, names, standard, content)
+
     has_text = [p for p in content["pages"] if p.get("text", "").strip()]
     check(len(has_text) == page_count,
           f"{standard}: extracted page text present for every page",
@@ -538,6 +540,32 @@ MANIFEST_FOR = {
     "cmi5": "cmi5.xml",
     "xapi": "tincan.xml",
 }
+
+
+def verify_thumbnails(zf, names, standard, content):
+    """Every page carries a small copy, and the small copies are actually small.
+
+    Without them the page list pulls every full-resolution page at once, which
+    on a real 38-page deck measured 4.5 MB to draw images a hundred pixels
+    wide. The size ratio is asserted, not just their presence: a "thumbnail"
+    encoded at full resolution would pass a file-exists check and fix nothing.
+    """
+    pages = content["pages"]
+    missing = [p["n"] for p in pages
+               if not p.get("thumb") or f"content/{p['thumb']}" not in names]
+    check(not missing, f"{standard}: every page has a thumbnail", str(missing[:5]))
+    if missing:
+        return
+
+    full = sum(zf.getinfo(f"content/{p['src']}").file_size for p in pages)
+    thumbs = sum(zf.getinfo(f"content/{p['thumb']}").file_size for p in pages)
+    check(thumbs * 4 < full,
+          f"{standard}: thumbnails cost a fraction of the pages",
+          f"{thumbs} vs {full} bytes")
+
+    # PNG pages are allowed, but a PNG thumbnail of a slide defeats the point.
+    png_thumbs = [p["thumb"] for p in pages if p["thumb"].lower().endswith(".png")]
+    check(not png_thumbs, f"{standard}: thumbnails are not PNG", str(png_thumbs[:3]))
 
 
 def verify_offline(zf, names, standard):

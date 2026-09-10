@@ -236,8 +236,11 @@
       btn.type = 'button';
       btn.className = 'thumb';
       btn.dataset.page = String(page.n);
-      btn.innerHTML = '<img alt="" loading="lazy"><span class="thumb__n"></span>';
-      btn.querySelector('img').src = 'content/' + page.src;
+      btn.innerHTML = '<img alt="" loading="lazy" decoding="async">'
+        + '<span class="thumb__n"></span>';
+      // The small copy the build step made, when there is one. Falling back to
+      // the full page keeps a package built before thumbnails existed working.
+      btn.querySelector('img').src = 'content/' + (page.thumb || page.src);
       btn.querySelector('.thumb__n').textContent = String(page.n);
       btn.setAttribute('aria-label', t('goToPage', { n: page.n }));
       frag.appendChild(btn);

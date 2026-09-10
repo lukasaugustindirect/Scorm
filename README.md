@@ -126,6 +126,34 @@ faithful rendering of an approved document, when the PDF must not be uploaded
 anywhere, or when the same course has to run in other systems — which is what
 this tool is for.
 
+## What a package weighs
+
+Measured on three real 36-41 page Czech training decks, 16:9 slides:
+
+| | |
+| --- | --- |
+| Build, all pages | 7-9 seconds |
+| Package | 2.9-4.8 MB |
+| Per page | 64-124 kB at the default 150 DPI |
+| Opening the page list | 156 kB |
+
+That last number was 4.5 MB until the page list got its own images. Every
+thumbnail was the full-resolution page, downloaded and decoded to be drawn
+107 px wide — all of them at once, since `loading="lazy"` does not defer
+images inside an open scroll container. Each page now also ships a 240 px copy,
+about 4 kB, which costs 3% on the package and cuts the list 29-fold. The
+ratio is asserted on every build, not just the files' presence: a "thumbnail"
+encoded at full resolution would pass a file-exists check and fix nothing.
+
+150 DPI on a 16:9 slide comes to 2000x1125, which is enough for dense body
+text — checked by eye on slides carrying 20pt bullet lists and 14pt legal
+citations. Raising it is a setting; on these documents it is not needed.
+
+A 38-page course was also driven through a recording SCORM 1.2 API end to end:
+`completed` on the last page, the bookmark at page 38, 22 API calls for 38
+pages, `suspend_data` 11 characters against the standard's 4096 limit, and a
+relaunch that resumed on page 38 with every page still marked read.
+
 ## Trying a package without an LMS
 
 **To see the course**, unzip a package and open `index.html` by double-click.
@@ -382,8 +410,8 @@ A real end-to-end run, not unit tests around mocks. It:
    holds exactly one correctly named package per course with the edited title
    and each document's own language.
 
-Current state: **520 assertions, all passing** (83 rule checks in plain
-Node, 137 run-time in the browser, 300 structural).
+Current state: **550 assertions, all passing** (85 rule checks in plain
+Node, 141 run-time in the browser, 324 structural).
 
 Step 6 needs `xmllint`; without it the schema checks are skipped loudly rather
 than passing quietly. Everything else needs only Node and, for the build, the

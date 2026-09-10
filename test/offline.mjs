@@ -85,6 +85,21 @@ export async function testOffline(browser, outDir, pageCount) {
       expect(state.total === String(pageCount), 'reports the page count',
              String(state.total));
       expect(state.rendered, 'renders the first page image');
+      // The page list must draw the small copies. Asserted in the player, not
+      // just in the zip: shipping thumbnails the rail never asks for would
+      // leave the 4.5 MB problem exactly where it was.
+      const rail = await page.evaluate(() => {
+        document.getElementById('toggle-thumbs').click();
+        const sources = [...document.querySelectorAll('.thumb img')]
+          .map((img) => img.getAttribute('src') || '');
+        return {
+          count: sources.length,
+          fromThumbs: sources.filter((src) => /thumb/.test(src)).length,
+        };
+      });
+      expect(rail.count > 0 && rail.fromThumbs === rail.count,
+             'the page list draws the small copies, not the full pages',
+             `${rail.fromThumbs}/${rail.count}`);
     } finally {
       await context.close();
     }
