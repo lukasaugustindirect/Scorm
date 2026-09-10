@@ -50,6 +50,38 @@ COURSE_TITLE = "Bezpečnost práce 2026"
 COMMON_FILES = ["index.html", "player.css", "player.js", "lms-adapter.js",
                 "content/pages.json"]
 
+# URLs a package is allowed to contain. All three are identifiers rather than
+# addresses -- two XML namespaces and the SVG one in the inline favicon -- and
+# nothing ever fetches them.
+#
+# The point of pinning this: a package that reaches out to the network is a
+# package an LMS has to whitelist. Sana, for one, needs embedded content's
+# domain allowed through its CSP, and content loaded in an iframe that way is a
+# documented cause of courses never reporting back. Ours asks for nothing, and
+# that has to stay true -- one CDN font or analytics snippet would break it
+# silently, in someone else's LMS, months later.
+# Identifiers, by prefix. XML and SVG namespaces, plus the xAPI and cmi5
+# vocabularies -- verbs, activity types, context categories -- which travel
+# inside statements as the words for what happened. An LRS may resolve one for
+# documentation; a course never does.
+ALLOWED_URL_PREFIXES = (
+    "http://www.w3.org/",
+    "http://www.imsproject.org/xsd/",
+    "http://www.imsglobal.org/xsd/",
+    "http://www.adlnet.org/xsd/",
+    "http://adlnet.gov/expapi/",
+    "https://w3id.org/xapi/",
+    "http://projecttincan.com/tincan.xsd",
+    "http://id.tincanapi.com/",
+)
+
+# Where the schema files are deliberately shipped, their own imports point at
+# more ADL and IMS namespaces. Those are declarations inside .xsd files, not
+# anything the course loads.
+SCHEMA_URL_PREFIXES = ("http://www.adlnet.org/", "http://www.imsglobal.org/",
+                       "http://www.imsproject.org/", "http://www.w3.org/",
+                       "http://ltsc.ieee.org/")
+
 # Call sites and data-model keys that prove the adapter is really wired to its
 # standard's run-time, rather than merely mentioning it.
 ADAPTER_MARKS = {
@@ -133,6 +165,8 @@ def verify_common(zf, standard, page_count):
     check(abs((content.get("masteryScore") or 0) - MASTERY_PERCENT / 100) < 1e-9,
           f"{standard}: mastery score normalised to 0-1",
           f"got {content.get('masteryScore')}")
+
+    verify_offline(zf, names, standard)
 
     missing_images = [p["src"] for p in content["pages"]
                       if f"content/{p['src']}" not in names]
@@ -504,6 +538,63 @@ MANIFEST_FOR = {
     "cmi5": "cmi5.xml",
     "xapi": "tincan.xml",
 }
+
+
+def verify_offline(zf, names, standard):
+    """No package may reach out to the network.
+
+    Every image, script, style and font is inside the zip, which is what lets a
+    course run in an air-gapped LMS, behind a strict CSP, or straight off a
+    file:// double-click. It is also the property that makes the whole tool
+    honest about the PDF never leaving the building.
+    """
+    # The course's own IRI, and the AU IRIs built beneath it, are how an LRS
+    # names this course forever. They are declared identity, not an address --
+    # and the author chose them, so they cannot be listed here in advance.
+    # Read from the manifest that declares them rather than from a key added to
+    # pages.json for this test's benefit.
+    own = []
+    manifest_name = MANIFEST_FOR.get(standard)
+    if manifest_name and manifest_name in names:
+        try:
+            declared = zf.read(manifest_name).decode("utf-8")
+            own = re.findall(r'\bid="(https?://[^"]+)"', declared)
+        except (KeyError, UnicodeDecodeError):
+            pass
+
+    offenders = []
+    for name in sorted(names):
+        if name.endswith("/") or name.lower().endswith(
+                (".webp", ".png", ".jpg", ".jpeg", ".gif")):
+            continue
+        try:
+            text = zf.read(name).decode("utf-8")
+        except (UnicodeDecodeError, KeyError):
+            continue
+        # A URL in a comment is a citation, not a request. The adapters cite the
+        # specifications they implement, and stripping those to satisfy a test
+        # would delete the reason the code looks the way it does.
+        if name.endswith(".js"):
+            text = re.sub(r"/\*.*?\*/", " ", text, flags=re.S)
+            text = re.sub(r"(?m)^\s*//.*$", " ", text)
+            text = re.sub(r"\s//[^\n\"'`]*$", " ", text, flags=re.M)
+        in_schema_folder = name.startswith("SCORM-schemas/")
+
+        for url in re.findall(r"https?://[^\"'\s<>)\\]+", text):
+            trimmed = url.rstrip(".,;")
+            if trimmed.startswith(ALLOWED_URL_PREFIXES):
+                continue
+            if any(trimmed == iri or trimmed.startswith(iri.rstrip("/") + "/")
+                   for iri in own):
+                continue
+            if in_schema_folder and trimmed.startswith(SCHEMA_URL_PREFIXES):
+                continue
+            offenders.append(f"{name}: {trimmed}")
+
+    check(not offenders,
+          f"{standard}: loads nothing from the network, so no LMS has to "
+          f"whitelist it",
+          "; ".join(sorted(set(offenders))[:5]))
 
 
 def verify_package(path, page_count, label=""):

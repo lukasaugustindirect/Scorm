@@ -85,6 +85,47 @@ talks to it through a small interface — `init`, `saveProgress`, `setComplete`,
 `finish` — and treats the LMS as best-effort, so a package still opens and
 works if you unzip it and view it locally.
 
+## Importing into Sana
+
+Sana takes SCORM 1.2 and SCORM 2004, as a `.zip` — not an unzipped folder:
+**Manage → Content → Import → SCORM**. SCORM 1.2 is what this tool builds by
+default, so a package is ready to import as it comes out.
+
+Three things about Sana that shape how a package behaves, and how this tool
+handles each:
+
+**Whitelisting is not needed.** Sana requires the domain of any embedded
+content to be allowed through its CSP, and content loaded in an iframe that
+way is a documented cause of courses that never report back. These packages
+load nothing from the network: every image, script, style and page is inside
+the zip. `test/verify.py` asserts it on every build — the only URLs a package
+contains are XML namespaces and xAPI vocabulary IRIs, which are names rather
+than addresses, and the course's own IRI. A CDN font or an analytics snippet
+would break the property silently, in someone else's LMS, months later, so it
+is pinned rather than trusted.
+
+**Completion is decided by the package, not by Sana.** With no pass mark set,
+the course reports `completed` once the completion rule is met, and Sana closes
+it. Set a pass mark and it reports `passed` or `failed` instead, and Sana keeps
+the course open until the learner passes. Both are one field under Settings;
+neither is invented here.
+
+**Re-converting an updated PDF: keep the identifier.** For small fixes Sana
+offers *Update SCORM package*; for larger changes the item identifier in
+`imsmanifest.xml` has to change or learners never see the new version — and
+changing it wipes their saved progress. This tool derives the identifier from
+the course title, so re-converting a corrected PDF under the same title
+produces the same identifier, which is what you want. Rename the course and you
+have started a new one. The Settings field says so, and can be pinned by hand.
+
+Worth knowing before choosing this route at all: **Sana can convert a PDF into
+a native interactive course itself**, with AI-generated quizzes. That is faster
+and better integrated, and it is the right answer when you want quizzes that
+are not in the document. It is the wrong answer when the course must be a
+faithful rendering of an approved document, when the PDF must not be uploaded
+anywhere, or when the same course has to run in other systems — which is what
+this tool is for.
+
 ## Trying a package without an LMS
 
 **To see the course**, unzip a package and open `index.html` by double-click.
@@ -341,8 +382,8 @@ A real end-to-end run, not unit tests around mocks. It:
    holds exactly one correctly named package per course with the edited title
    and each document's own language.
 
-Current state: **511 assertions, all passing** (82 rule checks in plain
-Node, 137 run-time in the browser, 292 structural).
+Current state: **520 assertions, all passing** (83 rule checks in plain
+Node, 137 run-time in the browser, 300 structural).
 
 Step 6 needs `xmllint`; without it the schema checks are skipped loudly rather
 than passing quietly. Everything else needs only Node and, for the build, the

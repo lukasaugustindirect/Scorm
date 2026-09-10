@@ -119,8 +119,11 @@ export const UI_STRINGS = {
     'course.descriptionPlaceholder': 'Shown by some LMSs in the catalogue',
     'course.identifier': 'Identifier',
     'course.identifierPlaceholder': 'derived from the title',
-    'course.identifierHint': 'Used as the file name, and as the course identifier '
-      + 'inside the LMS.',
+    'course.identifierHint': 'The file name, and the course identifier inside the '
+      + 'LMS. Keep it the same when you re-convert an updated PDF: that is how '
+      + 'an LMS recognises the new version as the same course and keeps '
+      + 'learners\u2019 progress. Changing it starts a new course, and progress '
+      + 'is lost.',
     'course.language': 'Course language',
     'course.languageHint': 'Sets the language of the buttons and labels inside the course.',
     'course.iri': 'Unique address of the course',
@@ -238,8 +241,10 @@ export const UI_STRINGS = {
     'course.descriptionPlaceholder': 'Některé LMS jej zobrazují v katalogu',
     'course.identifier': 'Identifikátor',
     'course.identifierPlaceholder': 'odvozeno z názvu',
-    'course.identifierHint': 'Použije se jako název souboru a jako označení kurzu '
-      + 'uvnitř LMS.',
+    'course.identifierHint': 'Název souboru a označení kurzu v LMS. Když budete '
+      + 'převádět opravené PDF, nechte ho stejný — podle něj LMS pozná, že jde '
+      + 'o novou verzi téhož kurzu, a zachová lidem rozdělanou práci. Změna '
+      + 'znamená nový kurz a postup se ztratí.',
     'course.language': 'Jazyk kurzu',
     'course.languageHint': 'Určuje jazyk tlačítek a popisků uvnitř kurzu.',
     'course.iri': 'Jednoznačná adresa kurzu',
