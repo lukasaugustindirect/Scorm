@@ -87,9 +87,22 @@ works if you unzip it and view it locally.
 
 ## Trying a package without an LMS
 
-`harness/` is a fake LMS. It runs a built package and shows exactly what the
-course reports, which is the fastest way to find out whether something works
-before involving a real LMS:
+**To see the course**, unzip a package and open `index.html` by double-click.
+That works, and it is worth knowing why it takes any doing: the player needs its
+course manifest, and a page opened from `file://` cannot fetch its own siblings,
+so a fetch of `content/pages.json` fails with *"Failed to fetch"* and nothing
+loads at all. The manifest therefore also rides inline in `index.html`, written
+in at build time, and the fetch is only a fallback. Page images are `<img src>`
+and were never affected — the two load differently on `file://`, which is the
+trap. `test/offline.mjs` asserts all of it, because this was broken once and
+every other stage serves the package over HTTP, where it cannot fail.
+
+Opened that way the course says it is not connected and saves no progress,
+which is correct: there is no LMS to save to.
+
+**To see what the course reports**, `harness/` is a fake LMS. It runs a built
+package and shows exactly what goes back, which is the fastest way to find out
+whether something works before involving a real LMS:
 
 ```sh
 node tools/unpack.mjs test/output/my-course-scorm12.zip

@@ -113,12 +113,37 @@
     el['zoom-mode'].title = t(ZOOM_LABEL_KEYS[zoom]);
   }
 
+  /**
+   * The course manifest.
+   *
+   * Taken from the inline block the build step writes, and only fetched if that
+   * is missing. The order matters: a package unzipped and opened by
+   * double-click runs from file://, where a page cannot fetch its own siblings
+   * -- the fetch fails with "Failed to fetch" and the course never loads, which
+   * is exactly what someone checking a package before uploading it would hit.
+   * The fetch stays as the fallback for anything that rewrites index.html.
+   */
+  function loadManifest() {
+    var inline = document.getElementById('course-data');
+    if (inline && inline.textContent) {
+      try {
+        var parsed = JSON.parse(inline.textContent);
+        if (parsed && parsed.pages && parsed.pages.length) {
+          return Promise.resolve(parsed);
+        }
+      } catch (err) {
+        // A malformed block should not be fatal while a real file sits next to
+        // it, so fall through rather than give up.
+      }
+    }
+    return fetch('content/pages.json', { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+  }
+
   function boot() {
-    fetch('content/pages.json', { cache: 'no-store' })
-      .then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      })
+    loadManifest()
       .then(function (data) {
         manifest = data;
         pages = data.pages || [];

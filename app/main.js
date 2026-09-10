@@ -185,7 +185,7 @@ async function accept(file) {
   ui.previewCard.hidden = true;
   ui.preview.replaceChildren();
 
-  const stem = file.name.replace(/\.pdf$/i, '');
+  const stem = titleFromFilename(file.name);
   ui.filemeta.hidden = false;
   ui.filemeta.textContent = `${file.name} — ${formatBytes(file.size)}, ${t('source.reading')}`;
 
@@ -428,6 +428,24 @@ function fail(message) {
 function clearError() {
   ui.error.hidden = true;
   ui.error.textContent = '';
+}
+
+/**
+ * A course title guessed from a filename, for PDFs that carry no /Title.
+ *
+ * Only separators are touched: underscores and runs of dots become spaces, and
+ * whitespace is collapsed. Nothing is dropped and no words are reordered --
+ * a filename is the author's own words, and a cleverer guess would mangle
+ * titles that were already right. It lands in the title field, where it can be
+ * edited, so being conservative costs nothing.
+ */
+function titleFromFilename(name) {
+  return name
+    .replace(/\.pdf$/i, '')
+    .replace(/[_]+/g, ' ')
+    .replace(/\.+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim() || name;
 }
 
 function formatBytes(bytes) {

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%231f6feb'/%3E%3Cpath d='M4 3h5l3 3v7H4z' fill='%23fff'/%3E%3Cpath d='M9 3v3h3z' fill='%23a8c7fa'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='4' fill='%23f59e0b'/%3E%3Cpath d='M4 3h5l3 3v7H4z' fill='%23fff'/%3E%3Cpath d='M9 3v3h3z' fill='%23fde68a'/%3E%3C/svg%3E">
 <title>Course</title>
 <link rel="stylesheet" href="player.css">
 </head>
@@ -67,6 +67,13 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 </div>
+
+<!-- The course manifest, written in by the build step.
+     It is also shipped as content/pages.json, which the player falls back to,
+     but it has to be HERE as well: a package opened by double-click runs from
+     file://, where a page cannot fetch its own siblings, so the fetch fails and
+     the course never loads. Page images are <img src> and work either way. -->
+<script type="application/json" id="course-data">{}</script>
 
 <!-- The adapter is chosen when the package is built; it defines window.PdfScormAdapter. -->
 <script src="lms-adapter.js"></script>

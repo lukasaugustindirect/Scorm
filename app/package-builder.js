@@ -20,8 +20,9 @@ import { extensionFor } from './pdf-render.js';
 import { id as safeId, iri } from './standards/xml.js';
 import { playerStrings } from './i18n.js';
 
+// index.html is not here: it needs the course manifest written into it, so it
+// is assembled once that exists.
 const PLAYER_FILES = [
-  { from: 'player/index.html', to: 'index.html' },
   { from: 'player/player.css', to: 'player.css' },
   { from: 'player/player.js', to: 'player.js' },
 ];
@@ -39,6 +40,32 @@ const STORE = { compression: 'STORE' };
 const DEFLATE = { compression: 'DEFLATE', compressionOptions: { level: 6 } };
 
 const playerCache = new Map();
+
+/**
+ * Writes the course manifest into the player's inline JSON block.
+ *
+ * Without this the package only works when something serves it over HTTP: a
+ * page opened from file:// cannot fetch its own siblings, so the player's
+ * fallback fetch of content/pages.json fails and nothing loads.
+ *
+ * The manifest carries text transcribed out of the PDF, which can contain
+ * anything at all -- including the characters that would end the script block
+ * early. Escaping "<" and ">" is invisible to JSON.parse and keeps the
+ * surrounding block intact whatever the document happened to say.
+ */
+function withCourseData(html, manifest) {
+  const json = JSON.stringify(manifest)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e');
+  const slot = '<script type="application/json" id="course-data">{}</script>';
+  if (!html.includes(slot)) {
+    throw new Error('player/index.html has no course-data block to fill in');
+  }
+  return html.replace(
+    slot,
+    '<script type="application/json" id="course-data">' + json + '</script>',
+  );
+}
 
 async function asset(path) {
   // The single-file build embeds these, because a file:// page cannot fetch a
@@ -93,6 +120,7 @@ export async function buildPackage(render, settings, standardId) {
     zip.file(file.to, await asset(file.from), DEFLATE);
   }
   zip.file('lms-adapter.js', await asset(`player/adapters/${standard.adapter}.js`), DEFLATE);
+  const playerHtml = await asset('player/index.html');
 
   // --- page images and content manifest ---
   const pages = [];
@@ -131,6 +159,7 @@ export async function buildPackage(render, settings, standardId) {
     content.cmi5 = { moveOn: course.moveOn };
   }
   zip.file('content/pages.json', JSON.stringify(content, null, 2), DEFLATE);
+  zip.file('index.html', withCourseData(playerHtml, content), DEFLATE);
 
   // --- optional schema files ---
   if (course.includeSchemas) {

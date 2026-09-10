@@ -17,6 +17,7 @@ import { makePdf } from './fixture.mjs';
 import { testPlayer } from './player.mjs';
 import { testStatements } from './statements.mjs';
 import { testSingleFile } from './single.mjs';
+import { testOffline } from './offline.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -334,6 +335,9 @@ async function main() {
       // The single-file variant needs its own context: it must be opened as a
       // real file:// document, not served.
       problems.push(...await testSingleFile(browser, OUT, ROOT, pdfPath, FIXTURE_PAGES));
+      // And the packages themselves have to survive being unzipped and
+      // double-clicked, which is the first thing anyone does with one.
+      problems.push(...await testOffline(browser, OUT, FIXTURE_PAGES));
     }
   } finally {
     await browser.close();
