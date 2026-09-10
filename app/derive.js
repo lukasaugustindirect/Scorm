@@ -197,21 +197,63 @@ export function courseTitle({ metaTitle, heading, filename }) {
 }
 
 /**
- * The course language, from what the document declares.
+ * Characters that only Czech (of the languages this tool ships) uses.
+ *
+ * A carrier signal, not a spell checker: English has none of these at all, so a
+ * document carrying them in any quantity is not English whatever it claims.
+ */
+const CZECH_LETTERS = /[ěščřžůďťňáéíóúý]/gi;
+
+/** Below this many per thousand letters, there is no signal worth acting on. */
+const CZECH_PER_THOUSAND = 15;
+
+/**
+ * Which of the languages we ship a sample of text looks like.
+ *
+ * Deliberately only able to answer "Czech", "not Czech" or "no idea". Telling
+ * English from German would need real language detection; telling Czech from
+ * English needs one character class, and that is the case in front of us.
+ *
+ * @returns {'cs'|'en'|null} null when the sample is too short to say
+ */
+export function looksLikeLanguage(text) {
+  const sample = String(text || '');
+  const letters = (sample.match(/\p{L}/gu) || []).length;
+  if (letters < 200) return null;
+  const czech = (sample.match(CZECH_LETTERS) || []).length;
+  return (czech * 1000) / letters >= CZECH_PER_THOUSAND ? 'cs' : 'en';
+}
+
+/**
+ * The course language, from what the document declares -- if the document's own
+ * text does not contradict it.
  *
  * A deck written in English should give its learners English buttons even when
  * the person converting it is working in a Czech interface, which is what
  * following the interface language blindly got wrong. Region is dropped:
  * "en-GB" and "en-US" are both English as far as the player's labels go.
  *
+ * The corroboration is not caution for its own sake. Both real Czech decks this
+ * was tested against declare /Lang "en" -- PowerPoint writes the authoring
+ * machine's locale, not the document's language -- so believing the declaration
+ * alone shipped Czech training with English buttons. When the text disagrees
+ * with the tag, neither is trusted and the default stands: refusing to guess is
+ * not the same as guessing the opposite.
+ *
+ * @param {string} declared the document's own tag
+ * @param {string[]} available languages the tool ships
+ * @param {string} [sample] text from the document, to check the tag against
  * @returns {string|null} a language the tool ships, or null to keep the default
  */
-export function courseLanguage(declared, available) {
+export function courseLanguage(declared, available, sample) {
   const tag = String(declared || '').trim().toLowerCase();
   if (!tag) return null;
   const primary = tag.split(/[-_]/)[0];
-  if (!primary) return null;
-  return available.includes(primary) ? primary : null;
+  if (!primary || !available.includes(primary)) return null;
+
+  const looks = looksLikeLanguage(sample);
+  if (looks && looks !== primary) return null;
+  return primary;
 }
 
 /**
@@ -221,32 +263,72 @@ export function courseLanguage(declared, available) {
  * title. Sizes are rounded before grouping because a single line can vary by a
  * fraction of a point.
  *
- * @param {Array<{str: string, size: number}>} runs text runs with their sizes
+ * @param {Array<{str: string, size: number, eol?: boolean}>} runs text runs
+ *   with their sizes; eol marks the end of a rendered line
  */
 export function headingFromRuns(runs) {
   const groups = new Map();
   for (const run of runs || []) {
     const text = String(run && run.str || '');
-    if (!text.trim()) continue;
+    const eol = Boolean(run && run.eol);
+    // pdf.js reports the end of a line as its own empty item rather than a flag
+    // on the last piece of text, so discarding empty items throws the line
+    // structure away -- which is how a two-line cover came out as a run-on.
+    if (!text.trim() && !eol) continue;
     const size = Math.round(Number(run.size) * 2) / 2;
     if (!Number.isFinite(size) || size <= 0) continue;
     if (!groups.has(size)) groups.set(size, []);
-    groups.get(size).push(text);
+    groups.get(size).push({ text: text.trim() ? text : '', eol });
   }
 
   // Largest first, so a heading wins over body text; walk down if the biggest
   // type turns out to be page furniture or a decorative glyph.
   for (const size of [...groups.keys()].sort((a, b) => b - a)) {
-    const items = groups.get(size);
-    // pdf.js splits a run wherever the PDF adjusts kerning, so a heading
-    // arrives either as words or as individual glyphs. Joining with spaces is
-    // right for the first and ruinous for the second.
-    const singles = items.filter((s) => s.trim().length === 1).length;
-    const joined = singles > items.length / 2 ? items.join('') : items.join(' ');
-    const candidate = joined.replace(/\s+/g, ' ').replace(/\s+([,.;:!?])/g, '$1').trim();
+    const candidate = joinHeading(groups.get(size));
     if (isUsableHeading(candidate)) return candidate;
   }
   return '';
+}
+
+/**
+ * Assembles a heading out of the runs set in one size.
+ *
+ * Two joins, and both were found the hard way on real documents.
+ *
+ * Within a line: pdf.js splits a run wherever the PDF adjusts kerning, so a
+ * heading arrives either as words or as individual glyphs. Spaces are right for
+ * the first and ruinous for the second.
+ *
+ * Between lines: a title block may be one phrase that wrapped, or two separate
+ * phrases stacked. One deck's cover reads "Pojištění" / "podnikání" -- one
+ * phrase, and it has to come out "Pojištění podnikání". Another's reads
+ * "Produktový den" / "Odpovědnost - výrobek, služba" -- two, and joining those
+ * with a space produces a run-on. A line beginning in lower case continues the
+ * one before it; a line beginning in upper case starts something new. Not
+ * infallible, but it is right on both, and the title is announced and editable.
+ */
+function joinHeading(items) {
+  const lines = [];
+  let current = [];
+  for (const item of items) {
+    if (item.text) current.push(item.text);
+    if (item.eol) { lines.push(current); current = []; }
+  }
+  if (current.length) lines.push(current);
+
+  const rendered = lines.map((parts) => {
+    const singles = parts.filter((part) => part.trim().length === 1).length;
+    return (singles > parts.length / 2 ? parts.join('') : parts.join(' '))
+      .replace(/\s+/g, ' ')
+      .trim();
+  }).filter(Boolean);
+
+  let heading = rendered[0] || '';
+  for (const line of rendered.slice(1)) {
+    const continues = /^\p{Ll}/u.test(line);
+    heading += (continues ? ' ' : ' – ') + line;
+  }
+  return heading.replace(/\s+/g, ' ').replace(/\s+([,.;:!?])/g, '$1').trim();
 }
 
 /**

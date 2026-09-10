@@ -1226,31 +1226,62 @@ window.__EMBEDDED_ASSETS = {"player/index.html":"\u003c!doctype html\u003e\n\u00
     }
     return { title: titleFromFilename(filename), source: "filename" };
   }
-  function courseLanguage(declared, available) {
+  var CZECH_LETTERS = /[ěščřžůďťňáéíóúý]/gi;
+  var CZECH_PER_THOUSAND = 15;
+  function looksLikeLanguage(text2) {
+    const sample = String(text2 || "");
+    const letters = (sample.match(/\p{L}/gu) || []).length;
+    if (letters < 200) return null;
+    const czech = (sample.match(CZECH_LETTERS) || []).length;
+    return czech * 1e3 / letters >= CZECH_PER_THOUSAND ? "cs" : "en";
+  }
+  function courseLanguage(declared, available, sample) {
     const tag = String(declared || "").trim().toLowerCase();
     if (!tag) return null;
     const primary = tag.split(/[-_]/)[0];
-    if (!primary) return null;
-    return available.includes(primary) ? primary : null;
+    if (!primary || !available.includes(primary)) return null;
+    const looks = looksLikeLanguage(sample);
+    if (looks && looks !== primary) return null;
+    return primary;
   }
   function headingFromRuns(runs) {
     const groups = /* @__PURE__ */ new Map();
     for (const run2 of runs || []) {
       const text2 = String(run2 && run2.str || "");
-      if (!text2.trim()) continue;
+      const eol = Boolean(run2 && run2.eol);
+      if (!text2.trim() && !eol) continue;
       const size = Math.round(Number(run2.size) * 2) / 2;
       if (!Number.isFinite(size) || size <= 0) continue;
       if (!groups.has(size)) groups.set(size, []);
-      groups.get(size).push(text2);
+      groups.get(size).push({ text: text2.trim() ? text2 : "", eol });
     }
     for (const size of [...groups.keys()].sort((a, b) => b - a)) {
-      const items = groups.get(size);
-      const singles = items.filter((s) => s.trim().length === 1).length;
-      const joined = singles > items.length / 2 ? items.join("") : items.join(" ");
-      const candidate = joined.replace(/\s+/g, " ").replace(/\s+([,.;:!?])/g, "$1").trim();
+      const candidate = joinHeading(groups.get(size));
       if (isUsableHeading(candidate)) return candidate;
     }
     return "";
+  }
+  function joinHeading(items) {
+    const lines = [];
+    let current = [];
+    for (const item of items) {
+      if (item.text) current.push(item.text);
+      if (item.eol) {
+        lines.push(current);
+        current = [];
+      }
+    }
+    if (current.length) lines.push(current);
+    const rendered = lines.map((parts) => {
+      const singles = parts.filter((part) => part.trim().length === 1).length;
+      return (singles > parts.length / 2 ? parts.join("") : parts.join(" ")).replace(/\s+/g, " ").trim();
+    }).filter(Boolean);
+    let heading = rendered[0] || "";
+    for (const line of rendered.slice(1)) {
+      const continues = /^\p{Ll}/u.test(line);
+      heading += (continues ? " " : " \u2013 ") + line;
+    }
+    return heading.replace(/\s+/g, " ").replace(/\s+([,.;:!?])/g, "$1").trim();
   }
   function hasTextLayer(chars, sampled) {
     if (!sampled) return false;
@@ -1285,7 +1316,10 @@ window.__EMBEDDED_ASSETS = {"player/index.html":"\u003c!doctype html\u003e\n\u00
     const content = await page.getTextContent();
     return content.items.map((item) => ({
       str: item.str || "",
-      size: Math.hypot(item.transform[2], item.transform[3])
+      size: Math.hypot(item.transform[2], item.transform[3]),
+      // pdf.js's own guess at where a rendered line ends, which is what lets a
+      // wrapped title be told from two stacked ones.
+      eol: Boolean(item.hasEOL)
     }));
   }
   async function peek(bytes) {
@@ -1305,10 +1339,15 @@ window.__EMBEDDED_ASSETS = {"player/index.html":"\u003c!doctype html\u003e\n\u00
       }
       const sampled = samplePages(doc.numPages);
       let textChars = 0;
+      const sample = [];
       for (const n of sampled) {
         try {
           const runs = await textRuns(await doc.getPage(n));
-          for (const run2 of runs) textChars += run2.str.trim().length;
+          for (const run2 of runs) {
+            const text2 = run2.str.trim();
+            textChars += text2.length;
+            if (text2) sample.push(text2);
+          }
         } catch {
         }
       }
@@ -1323,7 +1362,10 @@ window.__EMBEDDED_ASSETS = {"player/index.html":"\u003c!doctype html\u003e\n\u00
         heading,
         textChars,
         sampledPages: sampled.length,
-        hasText: hasTextLayer(textChars, sampled.length)
+        hasText: hasTextLayer(textChars, sampled.length),
+        // Enough to tell the languages this tool ships apart, and no more: the
+        // whole document would be pointless to carry around for one check.
+        sampleText: sample.join(" ").slice(0, 4e3)
       };
     } finally {
       await task.destroy();
@@ -2266,7 +2308,11 @@ ${fileList}
     }
     if (info.subject) entry.description = info.subject;
     if (!courseLanguagePinned) {
-      const declared = courseLanguage(info.language, LANGUAGES.map((l) => l.code));
+      const declared = courseLanguage(
+        info.language,
+        LANGUAGES.map((l) => l.code),
+        info.sampleText
+      );
       if (declared) {
         entry.languageFromPdf = true;
         if (declared !== entry.language) {

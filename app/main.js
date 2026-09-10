@@ -316,7 +316,9 @@ function adoptFromPdf(entry) {
   // English deck converted in a Czech interface should still give its learners
   // English buttons. A language the author pinned by hand beats both.
   if (!courseLanguagePinned) {
-    const declared = courseLanguage(info.language, LANGUAGES.map((l) => l.code));
+    const declared = courseLanguage(
+      info.language, LANGUAGES.map((l) => l.code), info.sampleText,
+    );
     if (declared) {
       entry.languageFromPdf = true;
       if (declared !== entry.language) {

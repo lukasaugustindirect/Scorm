@@ -45,6 +45,9 @@ async function textRuns(page) {
   return content.items.map((item) => ({
     str: item.str || '',
     size: Math.hypot(item.transform[2], item.transform[3]),
+    // pdf.js's own guess at where a rendered line ends, which is what lets a
+    // wrapped title be told from two stacked ones.
+    eol: Boolean(item.hasEOL),
   }));
 }
 
@@ -77,13 +80,19 @@ export async function peek(bytes) {
       // document: there are two more ways to name the course.
     }
 
-    // Is there a text layer at all, or is this a scan?
+    // Is there a text layer at all, or is this a scan? The sample is kept, not
+    // just counted: it is also what the declared language gets checked against.
     const sampled = samplePages(doc.numPages);
     let textChars = 0;
+    const sample = [];
     for (const n of sampled) {
       try {
         const runs = await textRuns(await doc.getPage(n));
-        for (const run of runs) textChars += run.str.trim().length;
+        for (const run of runs) {
+          const text = run.str.trim();
+          textChars += text.length;
+          if (text) sample.push(text);
+        }
       } catch {
         // Counted as no text, which is the safe direction: the worst outcome
         // is offering to attach text that turns out to be empty.
@@ -102,6 +111,9 @@ export async function peek(bytes) {
       textChars,
       sampledPages: sampled.length,
       hasText: hasTextLayer(textChars, sampled.length),
+      // Enough to tell the languages this tool ships apart, and no more: the
+      // whole document would be pointless to carry around for one check.
+      sampleText: sample.join(' ').slice(0, 4000),
     };
   } finally {
     // destroy() is on the loading task; PDFDocumentProxy only offers cleanup().

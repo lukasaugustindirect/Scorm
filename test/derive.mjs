@@ -88,6 +88,24 @@ check(!isUsableTitle('x'.repeat(200), 'a.pdf'),
       'rejects a title too long to name a file with');
 
 console.log('\nheading from the largest type on the page');
+// Real cover pages, from three documents this was tested against.
+eq(headingFromRuns([
+  { str: 'Pojištění', size: 80.4, eol: true }, { str: 'podnikání', size: 80.4, eol: true },
+  { str: 'Produktové školení', size: 48.1, eol: true },
+]), 'Pojištění podnikání',
+   'real: one phrase wrapped across two lines joins with a space');
+
+// Exactly the item shape pdf.js produced for that cover: the line end arrives
+// as its own empty item, and the dash is a run of its own.
+eq(headingFromRuns([
+  { str: 'Produktový den', size: 48.1 },
+  { str: '', size: 48.1, eol: true },
+  { str: 'Odpovědnost', size: 48.1 }, { str: ' ', size: 48.1 },
+  { str: '–', size: 48.1 }, { str: ' ', size: 48.1 },
+  { str: 'výrobek, služba', size: 48.1 },
+]), 'Produktový den – Odpovědnost – výrobek, služba',
+   'real: two stacked phrases are separated, not run together');
+
 eq(headingFromRuns([
   { str: 'Direct', size: 48.1 }, { str: 'Impact', size: 48.1 }, { str: 'culture', size: 48.1 },
   { str: '… the place where people create the value …', size: 24 },
