@@ -402,21 +402,60 @@ A real end-to-end run, not unit tests around mocks. It:
 7. unzips each built package and opens it as a real `file://` document
    (`test/offline.mjs`) — the double-click path, which was broken once while
    every served stage stayed green,
-8. drives the converter against PDFs that are **not** the happy case
+8. opens that package **on a phone** (`test/mobile.mjs`, 390x844 and 320x568
+   with touch): nothing scrolls sideways, every control clears 44px, the page
+   list closes when a page is picked, a swipe turns the page, and a swipe on a
+   zoomed page pans it instead of turning it,
+9. drives the converter against PDFs that are **not** the happy case
    (`test/awkward.mjs`): no title, a title Word invented, a scan, an English
    document in a Czech interface, a truncated file — asserting the name, the
    language, the switched-off option and the sentence the interface shows,
-9. drops three PDFs at once (`test/bulk.mjs`), two of them sharing a title,
+10. drops three PDFs at once (`test/bulk.mjs`), two of them sharing a title,
    edits one title in place, builds, and opens the SCORM 1.2 bundle to check it
    holds exactly one correctly named package per course with the edited title
    and each document's own language.
 
-Current state: **550 assertions, all passing** (85 rule checks in plain
-Node, 141 run-time in the browser, 324 structural).
+Current state: **578 assertions, all passing** (85 rule checks in plain
+Node, 169 run-time in the browser, 324 structural).
 
 Step 6 needs `xmllint`; without it the schema checks are skipped loudly rather
 than passing quietly. Everything else needs only Node and, for the build, the
 one devDependency `esbuild`.
+
+## On a phone
+
+A learner opening BOZP training on their own phone is the normal case, not an
+edge one, and an LMS puts the course in an iframe whose size nobody controls. So
+the player is measured at 390x844 and 320x568 rather than assumed to work.
+
+Three faults came out of measuring it the first time, all of them in a
+`@media (max-width: 34rem)` block that had been written and never once executed:
+
+- **The page list stayed open after picking a page.** On a 390px screen it
+  covered 69% of the page, so the learner chose a page and then could not see
+  it without reaching for the toggle again. It is a drawer now, and it closes
+  on a pick — decided by reading `position: absolute` off the computed style, so
+  the breakpoint stays in the stylesheet only.
+- **Every control was 28px.** That clears WCAG 2.2 SC 2.5.8 (24px) and misses
+  both platform guidelines: Apple asks 44pt, Material 48dp. They are 44px on a
+  coarse pointer now. Worth knowing if you edit this file: `html` sets
+  `font: 14px`, so `1rem` is 14px here and the obvious `2.75rem` lands at 39px.
+  Tap targets are in px for that reason.
+- **The top bar overflowed sideways at 320px.** A flex item's automatic minimum
+  is its min-content width, and the connection status is `nowrap` text with no
+  smaller size to fall back to. The status truncates now — and reports itself as
+  a toast as well, so a message nobody can read in the bar is still delivered
+  in full.
+
+Swiping turns the page, which is the gesture a reader reaches for first. It is
+deliberately narrow: one finger, mostly sideways, under 800ms, not started on a
+control, and never while the page has somewhere to pan — in the actual-size
+zoom a sideways drag has to move the page, or the right-hand side of a wide
+slide would be unreachable. That guard is asserted, not assumed.
+
+A 16:9 slide on a portrait phone is still a strip in the middle of a tall
+screen; that is geometry, not a bug. The escapes are fit-width, actual size with
+panning, the browser's own pinch-zoom (not disabled), and turning the phone.
 
 ## Known limitations
 

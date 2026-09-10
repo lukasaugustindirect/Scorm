@@ -121,7 +121,16 @@ html, body {
 .bar--top { border-bottom-width: 1px; }
 .bar--bottom { border-top-width: 1px; justify-content: space-between; }
 
-.bar__right { display: flex; align-items: center; gap: .375rem; margin-left: auto; }
+.bar__right {
+  display: flex;
+  align-items: center;
+  gap: .375rem;
+  margin-left: auto;
+  /* Without this the group's automatic minimum is the min-content width of the
+     status text, so setting min-width on the status itself achieves nothing and
+     the bar still overflows. Measured: 25px of sideways scroll at 320px. */
+  min-width: 0;
+}
 
 .course-title {
   margin: 0;
@@ -137,6 +146,14 @@ html, body {
   font-size: .75rem;
   color: var(--muted-foreground);
   white-space: nowrap;
+  /* A flex item's automatic minimum is its min-content width, and nowrap text
+     has no smaller size to fall back to -- so without these the bar overflows
+     on a narrow screen instead of the message getting shorter. Measured: 1px
+     of sideways scroll at 320px. The full text is also announced as a toast
+     when it reports a problem, so truncating here loses nothing. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .status[data-state="ok"] { color: var(--success); }
 .status[data-state="error"] { color: var(--destructive); }
@@ -158,6 +175,9 @@ html, body {
   transition: background-color .15s, border-color .15s, color .15s;
 }
 .icon-btn { width: 2rem; height: 2rem; }
+/* Never let the bar reclaim space from a control: it shrank the hamburger to
+   30px on a phone. The title and the status give way instead, below. */
+.icon-btn, .nav-btn, .page-input { flex: 0 0 auto; }
 .nav-btn {
   height: 2rem;
   padding: 0 .75rem;
@@ -332,11 +352,41 @@ html, body {
 }
 .toast[hidden] { display: none; }
 
-/* Narrow iframes: the thumbnail rail would leave nothing for the page. */
+/* Narrow iframes: the thumbnail rail would leave nothing for the page, so it
+   floats over the stage instead of taking a column from it. The player closes
+   it as soon as a page is picked -- on a phone it covers 69% of the page, and
+   leaving it open means the learner cannot see what they just chose. That
+   behaviour keys off `position: absolute` being in force, so this breakpoint
+   stays the single place the decision lives. */
 @media (max-width: 34rem) {
-  .thumbs { position: absolute; z-index: 5; top: var(--bar-h); bottom: var(--bar-h); left: 0; }
+  .thumbs {
+    position: absolute;
+    z-index: 5;
+    top: var(--bar-h); bottom: var(--bar-h); left: 0;
+    /* Wide enough for a readable thumbnail, narrow enough to leave the page
+       showing behind it, and it is a drawer now rather than a column. */
+    flex-basis: 8rem;
+    width: 8rem;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, .18);
+  }
   .progress, .progress-label { display: none; }
   .nav-btn { padding: 0 .5rem; }
+}
+
+/* A finger is not a mouse pointer. Apple's guideline is 44pt, Material's 48dp,
+   and WCAG 2.2 SC 2.5.8 sets the floor at 24px -- the old 28px controls passed
+   the floor and missed both guidelines. Keyed off a coarse pointer as well as
+   width, so a touch tablet at 800px gets them too. */
+@media (pointer: coarse), (max-width: 34rem) {
+  /* In px on purpose. `html` sets `font: 14px`, so 1rem is 14px here, and the
+     obvious 2.75rem lands at 39px -- measured, after writing exactly that. A
+     fingertip target is a physical size; it should not track the type scale. */
+  :root { --bar-h: 56px; }
+  .icon-btn { width: 44px; height: 44px; }
+  .nav-btn, .page-input { height: 44px; }
+  .icon-bars, .icon-bars::before, .icon-bars::after { width: 1.125rem; }
+  /* Touch scrolling in the drawer should not fight the page image. */
+  .thumbs { -webkit-overflow-scrolling: touch; }
 }
 
 @media (prefers-reduced-motion: reduce) {

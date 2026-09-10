@@ -20,6 +20,7 @@ import { testSingleFile } from './single.mjs';
 import { testOffline } from './offline.mjs';
 import { testAwkward } from './awkward.mjs';
 import { testBulk } from './bulk.mjs';
+import { testMobile } from './mobile.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -360,6 +361,10 @@ async function main() {
       // And the packages themselves have to survive being unzipped and
       // double-clicked, which is the first thing anyone does with one.
       problems.push(...await testOffline(browser, OUT, FIXTURE_PAGES));
+      // And a learner opens it on a phone, which nothing here used to check.
+      // Runs after the offline stage because it reads the package that one
+      // unzipped.
+      problems.push(...await testMobile(browser, OUT, FIXTURE_PAGES));
       // Finally the documents that are not the happy case: no title, a title
       // Word invented, no text layer, a declared language, a truncated file.
       // This reloads the page, so it goes last.

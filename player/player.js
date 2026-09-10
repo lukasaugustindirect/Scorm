@@ -30,6 +30,13 @@
 
   var SAVE_DEBOUNCE_MS = 1200;
   var ZOOM_MODES = ['page', 'width', 'actual'];
+
+  /* What counts as a page-turning swipe rather than a scroll or a tap.
+     45px is far enough that a tap with a shaky thumb does not qualify but a
+     deliberate flick does; 1.8 keeps a mostly-vertical drag out of it. */
+  var SWIPE_MIN = 45;
+  var SWIPE_RATIO = 1.8;
+  var SWIPE_TIME = 800;
   var ZOOM_LABEL_KEYS = { page: 'fitPage', width: 'fitWidth', actual: 'actualSize' };
 
   var FALLBACK = {
@@ -403,14 +410,17 @@
 
     el.thumbs.addEventListener('click', function (event) {
       var btn = event.target.closest('.thumb');
-      if (btn) show(btn.dataset.page);
+      if (!btn) return;
+      show(btn.dataset.page);
+      // On a narrow screen the rail floats over the page rather than sitting
+      // beside it, so leaving it open hides the page that was just chosen.
+      // Measured on a 390px phone: it covered 69% of the page and the learner
+      // had to reach for the toggle again to see anything.
+      if (railOverlays()) setRail(false);
     });
 
     el['toggle-thumbs'].addEventListener('click', function () {
-      var open = el.thumbs.hidden;
-      el.thumbs.hidden = !open;
-      el['toggle-thumbs'].setAttribute('aria-expanded', String(open));
-      if (open) refreshThumbFlags();
+      setRail(el.thumbs.hidden);
     });
 
     el['zoom-mode'].addEventListener('click', function () {
@@ -432,6 +442,54 @@
       finish();
       window.location.href = session.returnUrl;
     });
+
+    // A swipe turns the page, which is the gesture a reader on a phone reaches
+    // for first. Deliberately narrow so it cannot steal a scroll or a pinch:
+    // one finger only, mostly sideways, quick, not started on a control, and
+    // never while the stage has somewhere to scroll horizontally -- in the
+    // actual-size and fit-width zooms a sideways drag has to pan the page
+    // instead. Passive, so it never blocks the browser's own scrolling.
+    var touch = null;
+    el.stage.addEventListener('touchstart', function (event) {
+      if (event.touches.length !== 1) { touch = null; return; }
+      var target = event.target;
+      if (target && target.closest && target.closest('button, input, a, .thumbs')) {
+        touch = null;
+        return;
+      }
+      touch = {
+        x: event.touches[0].clientX,
+        y: event.touches[0].clientY,
+        at: Date.now(),
+        // Recorded at the start: the zoom or the scroll position can change
+        // under the finger, and what matters is whether there was anywhere to
+        // pan to when the gesture began.
+        pannable: el.stage.scrollWidth > el.stage.clientWidth + 1,
+      };
+    }, { passive: true });
+
+    el.stage.addEventListener('touchmove', function (event) {
+      // A second finger means a pinch, which is never a page turn.
+      if (event.touches.length > 1) touch = null;
+    }, { passive: true });
+
+    el.stage.addEventListener('touchcancel', function () { touch = null; }, { passive: true });
+
+    el.stage.addEventListener('touchend', function (event) {
+      var start = touch;
+      touch = null;
+      if (!start || start.pannable) return;
+      if (!event.changedTouches || event.changedTouches.length !== 1) return;
+
+      var dx = event.changedTouches[0].clientX - start.x;
+      var dy = event.changedTouches[0].clientY - start.y;
+      if (Date.now() - start.at > SWIPE_TIME) return;
+      if (Math.abs(dx) < SWIPE_MIN) return;
+      // Mostly sideways, or it was a scroll that drifted.
+      if (Math.abs(dx) < Math.abs(dy) * SWIPE_RATIO) return;
+
+      show(dx < 0 ? current + 1 : current - 1);
+    }, { passive: true });
 
     document.addEventListener('keydown', function (event) {
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
@@ -461,9 +519,28 @@
 
   /* ---------- chrome ---------- */
 
+  /**
+   * True when the rail floats over the page instead of taking a column beside
+   * it. Read from the computed style rather than re-testing the viewport width,
+   * so the breakpoint lives in the stylesheet only and the two cannot drift.
+   */
+  function railOverlays() {
+    return window.getComputedStyle(el.thumbs).position === 'absolute';
+  }
+
+  function setRail(open) {
+    el.thumbs.hidden = !open;
+    el['toggle-thumbs'].setAttribute('aria-expanded', String(open));
+    if (open) refreshThumbFlags();
+  }
+
   function setStatus(text, state) {
     el['lms-status'].textContent = text;
     el['lms-status'].dataset.state = state || 'idle';
+    el['lms-status'].title = text;
+    // On a narrow bar the message is ellipsised, so a problem would otherwise
+    // be reported in a form nobody can read. The toast carries it in full.
+    if (state === 'error') toast(text);
   }
 
   var toastTimer = null;
