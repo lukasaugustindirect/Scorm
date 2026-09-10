@@ -1,7 +1,7 @@
 # PDF to SCORM
 
-Turns a PDF into an e-learning package that an LMS can import and track. One
-PDF in, up to four packages out:
+Turns PDFs into e-learning packages that an LMS can import and track. Each PDF
+becomes its own course, and each course can be built in up to four formats:
 
 | Standard | Manifest | What the course reports back |
 | --- | --- | --- |
@@ -36,9 +36,10 @@ Getting one file to work from `file://` takes some doing, since such a page
 cannot load ES modules, cannot start a *module* Worker and cannot fetch a
 sibling file. So the app is bundled into one classic script, pdf.js 3.11.174
 (the last release with a non-module worker) is started from a Blob URL, and the
-player, adapters and schemas ride along as embedded strings. Downloads *do*
-work from `file://`, which is what makes the whole approach viable — the test
-suite asserts every one of those points rather than trusting them.
+player, adapters, typeface and schemas ride along as embedded strings.
+Downloads *do* work from `file://`, which is what makes the whole approach
+viable — the test suite asserts every one of those points rather than trusting
+them.
 
 The served version below uses the modern pdf.js and is what you want on an
 internal web server, where it is just a URL for everyone.
