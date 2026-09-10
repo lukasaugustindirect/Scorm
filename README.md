@@ -142,6 +142,42 @@ own siblings. The shipped player deliberately does *not* carry it: 175 kB in
 every package a learner downloads is not worth it for a page-turner whose text
 lives inside the page images.
 
+## What it works out for itself
+
+Nobody should have to look inside a PDF to find out what the tool will do with
+it, so these are decided on the document rather than left as settings. Each one
+is stated on the first screen — a decision nobody can see is worse than no
+decision — and each can be overridden under Settings.
+
+**The course name.** Most PDFs carry no `/Title` at all, and many carry
+something worse: `Presentation1`, `Untitled`, `output`, a hash, or
+`Microsoft Word - export_final_v2.docx`, which is a file name wearing a hat.
+So a `/Title` is used only if it survives a credibility check, and otherwise the
+name comes from **the largest type on page one**, which for a report or a deck
+is its heading. Only then does the file name get a turn, with its underscores
+tidied into spaces. A `/Title` that turns out to be a file name ranks *below*
+the page heading but still above the file in hand.
+
+Nothing here rewrites a title that was already right, and nothing reorders or
+drops words: a cleverer guess would mangle correct names, which is a worse
+failure than a dull one. `test/derive.mjs` covers the rules directly, including
+every junk value listed above.
+
+**The course language.** Read from the document's own `/Lang` when it declares
+one, so an English deck gives its learners English buttons even when the person
+converting it is working in a Czech interface. Following the interface language
+blindly is what got that wrong.
+
+**Scanned PDFs.** A scan is pictures of pages with no text layer, so there is
+nothing for the screen-reader option to attach. Pages are sampled across the
+document — not just the front, since a scan often has a generated cover page
+with real text — and if there is no text the option is switched off and said
+so, rather than silently shipping a course that claims to be accessible.
+
+**Locked and damaged files.** A password-protected or truncated PDF gets a
+sentence about what to do, in the interface language, instead of whatever
+pdf.js threw.
+
 ## Options worth understanding
 
 You do not have to read any of this to use the tool. Drop a PDF, press the
@@ -247,7 +283,11 @@ npm test
 
 A real end-to-end run, not unit tests around mocks. It:
 
+0. checks the rules that decide what a PDF is (`test/derive.mjs`) in plain Node,
+   before Chromium starts — every junk `/Title`, a heading split into single
+   glyphs, a language tag with a region, a scan with a text cover page,
 1. writes a multi-page PDF byte by byte (`test/fixture.mjs`, no dependencies),
+   including the awkward shapes: no `/Title`, a `/Lang`, no text layer at all,
 2. serves the app and drives it in headless Chromium, building all four
    standards three times over — plain, with schema files, and in Czech — and
    saving every download,
@@ -270,9 +310,17 @@ A real end-to-end run, not unit tests around mocks. It:
    adapter is the right one, that the Czech build really is Czech, that a course
    title with diacritics survives the whole path from the PDF's Info dictionary
    into the manifest XML, and that the single-file variant's packages are
-   identical in every respect.
+   identical in every respect,
+7. unzips each built package and opens it as a real `file://` document
+   (`test/offline.mjs`) — the double-click path, which was broken once while
+   every served stage stayed green,
+8. drives the converter against PDFs that are **not** the happy case
+   (`test/awkward.mjs`): no title, a title Word invented, a scan, an English
+   document in a Czech interface, a truncated file — asserting the name, the
+   language, the switched-off option and the sentence the interface shows.
 
-Current state: **358 assertions, all passing** (66 run-time, 292 structural).
+Current state: **491 assertions, all passing** (82 rule checks in plain
+Node, 117 run-time in the browser, 292 structural).
 
 Step 6 needs `xmllint`; without it the schema checks are skipped loudly rather
 than passing quietly. Everything else needs only Node and, for the build, the

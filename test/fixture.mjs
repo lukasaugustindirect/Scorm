@@ -9,7 +9,16 @@ const ENCODING = 'latin1';
 function escapeText(value) {
   // Literal strings in a PDF are parenthesised, so those and the escape
   // character itself have to be escaped.
-  return String(value).replace(/([\\()])/g, '\\$1');
+  //
+  // Anything outside WinAnsi goes too, and not silently: this file serialises
+  // as latin1, so a Czech 'c with caron' (U+010D) would be written as its low
+  // byte 0x0D -- a carriage return in the middle of a content stream. That is
+  // how "Bezpečnost" came out of a fixture as "Bezpe nost", and a different
+  // character could corrupt the stream outright. The base-14 Helvetica this
+  // fixture draws with has no such glyph anyway; real PDFs embed a font.
+  return String(value)
+    .replace(/[^\u0020-\u007e\u00a0-\u00ff]/g, '?')
+    .replace(/([\\()])/g, '\\$1');
 }
 
 /**
@@ -42,7 +51,25 @@ function pdfString(value) {
  * @param {string} options.title  written into the document Info dictionary
  * @returns {Buffer}
  */
-export function makePdf({ pages = 3, title = 'Fixture Document' } = {}) {
+/**
+ * @param {object} [options]
+ * @param {number} [options.pages]     how many pages to emit
+ * @param {string|null} [options.title] /Title; null or '' omits it entirely,
+ *                                      which is what most real PDFs do
+ * @param {string} [options.language]  written as the catalog's /Lang
+ * @param {boolean} [options.text]     false emits pages with no text operators
+ *                                     at all, which is what a scan looks like
+ * @param {string} [options.heading]   large text at the top of page one, for
+ *                                     the title-from-the-page path
+ * @returns {Buffer}
+ */
+export function makePdf({
+  pages = 3,
+  title = 'Fixture Document',
+  language = '',
+  text = true,
+  heading = '',
+} = {}) {
   // Object numbering: 1 catalog, 2 page tree, 3 font, then a page object and a
   // content stream per page, and finally the Info dictionary.
   const objects = [];
@@ -53,18 +80,29 @@ export function makePdf({ pages = 3, title = 'Fixture Document' } = {}) {
   const kids = [];
   for (let i = 0; i < pages; i++) kids.push(`${pageObjNum(i)} 0 R`);
 
-  objects[1] = `<< /Type /Catalog /Pages 2 0 R >>`;
+  // /Lang lives on the catalog, which is where pdf.js reads it from and
+  // reports as info.Language.
+  const lang = language ? ` /Lang ${pdfString(language)}` : '';
+  objects[1] = `<< /Type /Catalog /Pages 2 0 R${lang} >>`;
   objects[2] = `<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${pages} >>`;
   objects[3] = `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica ` +
                `/Encoding /WinAnsiEncoding >>`;
 
   for (let i = 0; i < pages; i++) {
     const n = i + 1;
-    // The marker text is what the extracted-text assertion looks for.
-    const stream =
-      `BT /F1 28 Tf 72 720 Td (Fixture page ${n}) Tj ET\n` +
-      `BT /F1 12 Tf 72 680 Td (${escapeText('Page ' + n + ' of ' + pages + '.')}) Tj ET\n` +
-      `BT /F1 12 Tf 72 660 Td (${escapeText('SCORM converter test fixture.')}) Tj ET`;
+    // A page with no text operators is what a scanned document looks like to
+    // pdf.js: something is drawn, so it still renders, but getTextContent()
+    // finds nothing to return.
+    const stream = !text
+      ? `0.85 0.85 0.85 rg 72 300 450 450 re f\n` +
+        `0.6 0.6 0.6 rg 110 640 280 40 re f`
+      // The marker text is what the extracted-text assertion looks for.
+      : (heading && n === 1
+          ? `BT /F1 48 Tf 72 760 Td (${escapeText(heading)}) Tj ET\n`
+          : '') +
+        `BT /F1 28 Tf 72 720 Td (Fixture page ${n}) Tj ET\n` +
+        `BT /F1 12 Tf 72 680 Td (${escapeText('Page ' + n + ' of ' + pages + '.')}) Tj ET\n` +
+        `BT /F1 12 Tf 72 660 Td (${escapeText('SCORM converter test fixture.')}) Tj ET`;
 
     objects[pageObjNum(i)] =
       `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] ` +
@@ -75,7 +113,10 @@ export function makePdf({ pages = 3, title = 'Fixture Document' } = {}) {
       `stream\n${stream}\nendstream`;
   }
 
-  objects[infoObjNum] = `<< /Title ${pdfString(title)} /Author (Test Fixture) >>`;
+  // Most real PDFs carry no /Title at all, so omitting it has to be possible.
+  objects[infoObjNum] = title
+    ? `<< /Title ${pdfString(title)} /Author (Test Fixture) >>`
+    : `<< /Author (Test Fixture) >>`;
 
   // --- serialise, recording where each object starts ---
   const chunks = [];

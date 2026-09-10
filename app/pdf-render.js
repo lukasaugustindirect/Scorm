@@ -6,6 +6,7 @@
 // often contains material that must not be uploaded to a third-party service.
 
 import * as pdfjs from '../vendor/pdf.min.mjs';
+import { hasTextLayer, headingFromRuns, samplePages } from './derive.js';
 
 // Both of these are overridable so the single-file build can supply its own.
 // That build runs from file://, where a page may start a classic Web Worker but
@@ -13,6 +14,7 @@ import * as pdfjs from '../vendor/pdf.min.mjs';
 // Blob URL for the worker and has no directory to serve font data from.
 // Assignments are short-circuited, never evaluated, when an override is present:
 // import.meta.url does not exist in the bundled classic script.
+
 const OVERRIDES = (typeof window !== 'undefined' && window.__PDF_OVERRIDES) || {};
 
 pdfjs.GlobalWorkerOptions.workerSrc = OVERRIDES.workerSrc
@@ -31,6 +33,29 @@ const POINTS_PER_INCH = 72;
  *
  * @param {ArrayBuffer} bytes raw PDF
  */
+/**
+ * The text runs of a page, each with the size it was set in.
+ *
+ * pdf.js gives a transform matrix rather than a font size; the rendered size is
+ * the length of its vertical basis vector, which is what hypot of the second
+ * column comes to. Font size alone would ignore any scaling on the text.
+ */
+async function textRuns(page) {
+  const content = await page.getTextContent();
+  return content.items.map((item) => ({
+    str: item.str || '',
+    size: Math.hypot(item.transform[2], item.transform[3]),
+  }));
+}
+
+/**
+ * Everything worth knowing about a PDF before converting it.
+ *
+ * Deliberately more than the metadata: most documents carry no useful /Title,
+ * so the heading is lifted off the first page, and a sample of pages is checked
+ * for a text layer. Nobody should have to open a PDF to find out what the tool
+ * is going to do with it -- see app/derive.js for the rules that decide.
+ */
 export async function peek(bytes) {
   const task = pdfjs.getDocument({
     data: bytes,
@@ -42,11 +67,41 @@ export async function peek(bytes) {
   try {
     const meta = await doc.getMetadata().catch(() => ({ info: {} }));
     const info = meta.info || {};
+
+    // The largest type on page one, which for a report or a deck is its title.
+    let heading = '';
+    try {
+      heading = headingFromRuns(await textRuns(await doc.getPage(1)));
+    } catch {
+      // A page that will not give up its text is not a reason to refuse the
+      // document: there are two more ways to name the course.
+    }
+
+    // Is there a text layer at all, or is this a scan?
+    const sampled = samplePages(doc.numPages);
+    let textChars = 0;
+    for (const n of sampled) {
+      try {
+        const runs = await textRuns(await doc.getPage(n));
+        for (const run of runs) textChars += run.str.trim().length;
+      } catch {
+        // Counted as no text, which is the safe direction: the worst outcome
+        // is offering to attach text that turns out to be empty.
+      }
+    }
+
     return {
       numPages: doc.numPages,
       title: (info.Title || '').trim(),
       author: (info.Author || '').trim(),
       subject: (info.Subject || '').trim(),
+      // pdf.js surfaces the catalog's /Lang here. Measured on a real document:
+      // most carry nothing, but the ones that do are worth believing.
+      language: (info.Language || '').trim(),
+      heading,
+      textChars,
+      sampledPages: sampled.length,
+      hasText: hasTextLayer(textChars, sampled.length),
     };
   } finally {
     // destroy() is on the loading task; PDFDocumentProxy only offers cleanup().

@@ -18,6 +18,7 @@ import { testPlayer } from './player.mjs';
 import { testStatements } from './statements.mjs';
 import { testSingleFile } from './single.mjs';
 import { testOffline } from './offline.mjs';
+import { testAwkward } from './awkward.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -150,6 +151,14 @@ async function main() {
   const pdfPath = join(OUT, 'fixture.pdf');
   await writeFile(pdfPath, makePdf({ pages: FIXTURE_PAGES, title: FIXTURE_TITLE }));
   console.log(`fixture: ${FIXTURE_PAGES}-page PDF written`);
+
+  // The pure rules first: they need no browser, and if the rules that decide
+  // what a PDF is are wrong there is no point starting Chromium.
+  await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [join(HERE, 'derive.mjs')], { stdio: 'inherit' });
+    child.on('exit', (code) => (code === 0 ? resolve() : reject(
+      new Error('the derivation rules failed; see above'))));
+  });
 
   const playwrights = await loadPlaywrights();
   const port = await freePort();
@@ -338,6 +347,10 @@ async function main() {
       // And the packages themselves have to survive being unzipped and
       // double-clicked, which is the first thing anyone does with one.
       problems.push(...await testOffline(browser, OUT, FIXTURE_PAGES));
+      // Finally the documents that are not the happy case: no title, a title
+      // Word invented, no text layer, a declared language, a truncated file.
+      // This reloads the page, so it goes last.
+      problems.push(...await testAwkward(page, OUT, base));
     }
   } finally {
     await browser.close();

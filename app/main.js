@@ -3,6 +3,7 @@
 import { renderPdf, peek } from './pdf-render.js';
 import { buildPackage, bundle } from './package-builder.js';
 import { LANGUAGES, uiStrings, fill } from './i18n.js';
+import { courseLanguage, courseTitle, failureKey } from './derive.js';
 
 const el = (id) => document.getElementById(id);
 
@@ -11,6 +12,7 @@ const ui = {
   drop: el('drop'),
   file: el('file'),
   filemeta: el('filemeta'),
+  notices: el('notices'),
   title: el('title'),
   description: el('description'),
   identifier: el('identifier'),
@@ -185,24 +187,92 @@ async function accept(file) {
   ui.previewCard.hidden = true;
   ui.preview.replaceChildren();
 
-  const stem = titleFromFilename(file.name);
   ui.filemeta.hidden = false;
+  ui.notices.hidden = true;
+  ui.notices.replaceChildren();
   ui.filemeta.textContent = `${file.name} — ${formatBytes(file.size)}, ${t('source.reading')}`;
 
   try {
     const info = await peek(await file.arrayBuffer());
     pdfInfo = info;
     describeFile(file, info);
-
-    if (!ui.title.value) ui.title.value = info.title || stem;
-    if (!ui.description.value && info.subject) ui.description.value = info.subject;
+    adoptFromPdf(file, info);
     ui.build.disabled = false;
   } catch (err) {
     pdfFile = null;
     pdfInfo = null;
     ui.build.disabled = true;
     ui.filemeta.textContent = `${file.name} — ${formatBytes(file.size)}`;
-    fail(t('source.openFailed', { message: err.message }));
+    fail(describeFailure(err));
+  }
+}
+
+/** Turns what pdf.js reported into a sentence someone can act on. */
+function describeFailure(err) {
+  const key = failureKey(err);
+  return key
+    ? t(key)
+    : t('source.openFailed', { message: (err && err.message) || String(err) });
+}
+
+/**
+ * Takes the course settings from the PDF, and says what it took.
+ *
+ * This is the whole point of the automatic path: nobody should have to open a
+ * PDF to find out whether it carries a title, or check afterwards that the
+ * course did not end up named after a file. Fields the person has already
+ * filled in are never overwritten -- an explicit choice outranks a good guess.
+ */
+function adoptFromPdf(file, info) {
+  const notes = [];
+
+  if (!ui.title.value) {
+    const picked = courseTitle({
+      metaTitle: info.title,
+      heading: info.heading,
+      filename: file.name,
+    });
+    ui.title.value = picked.title;
+    // A title straight out of the metadata needs no explaining: it is what the
+    // document says it is called. The other two were worked out, so they are
+    // reported.
+    if (picked.source === 'page') {
+      notes.push(t('notice.titleFromPage', { title: picked.title }));
+    } else if (picked.source === 'filename') {
+      notes.push(t('notice.titleFromFile', { title: picked.title }));
+    }
+  }
+
+  if (!ui.description.value && info.subject) ui.description.value = info.subject;
+
+  // A document that declares its own language beats the interface language: an
+  // English deck converted in a Czech interface should still give its learners
+  // English buttons.
+  if (!courseLanguagePinned) {
+    const declared = courseLanguage(info.language, LANGUAGES.map((l) => l.code));
+    if (declared && declared !== ui.language.value) {
+      ui.language.value = declared;
+      // Named the way the interface language would say it in a sentence, which
+      // is not what the picker shows: Czech needs a case ending here.
+      notes.push(t('notice.language', { language: t(`lang.${declared}`) || declared }));
+    }
+  }
+
+  // A scan has no text to attach, so the option is switched off rather than
+  // left on producing empty strings and a course that claims to be accessible.
+  if (!info.hasText) {
+    ui.extractText.checked = false;
+    notes.push(t('notice.scanned'));
+  }
+
+  if (notes.length) {
+    notes.push(t('notice.settings'));
+    ui.notices.replaceChildren(...notes.map((text) => {
+      const li = document.createElement('li');
+      li.textContent = text;
+      return li;
+    }));
+    ui.notices.hidden = false;
   }
 }
 
@@ -428,24 +498,6 @@ function fail(message) {
 function clearError() {
   ui.error.hidden = true;
   ui.error.textContent = '';
-}
-
-/**
- * A course title guessed from a filename, for PDFs that carry no /Title.
- *
- * Only separators are touched: underscores and runs of dots become spaces, and
- * whitespace is collapsed. Nothing is dropped and no words are reordered --
- * a filename is the author's own words, and a cleverer guess would mangle
- * titles that were already right. It lands in the title field, where it can be
- * edited, so being conservative costs nothing.
- */
-function titleFromFilename(name) {
-  return name
-    .replace(/\.pdf$/i, '')
-    .replace(/[_]+/g, ' ')
-    .replace(/\.+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim() || name;
 }
 
 function formatBytes(bytes) {

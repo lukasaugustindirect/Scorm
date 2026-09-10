@@ -92,8 +92,25 @@ export const UI_STRINGS = {
     'source.page': 'page',
     'source.pages': 'pages',
     'source.notPdf': '{name} does not look like a PDF.',
-    'source.openFailed': 'This PDF could not be opened: {message}. ' +
-      'A password-protected or corrupt file will fail here.',
+    'source.locked': 'This PDF is password-protected, so it cannot be read. ' +
+      'Save a copy without the password and try that one.',
+    'source.corrupt': 'This PDF is damaged and cannot be read. ' +
+      'Try opening it in a PDF reader and saving a fresh copy.',
+    'source.openFailed': 'This PDF could not be opened: {message}',
+
+    // What the tool worked out for itself. Shown on the first screen, because a
+    // decision nobody can see is worse than no decision.
+    'notice.titleFromPage': 'Course name taken from the first page: “{title}”',
+    'notice.titleFromFile': 'The PDF carries no title, so the file name is ' +
+      'used: “{title}”',
+    'notice.language': 'The document is in {language}, so the course will be too.',
+    // Language names as they read inside that sentence, which is not the same
+    // as the names in the picker: Czech needs a case ending there.
+    'lang.en': 'English',
+    'lang.cs': 'Czech',
+    'notice.scanned': 'This PDF is scanned — it holds pictures of pages, not ' +
+      'text. It converts fine, but there is nothing to attach for screen readers.',
+    'notice.settings': 'Anything here can be changed under Settings.',
 
     'course.heading': 'Course details',
     'course.title': 'Course title',
@@ -185,8 +202,25 @@ export const UI_STRINGS = {
     'source.page': 'stránka',
     'source.pages': 'stránek',
     'source.notPdf': 'Soubor {name} nevypadá jako PDF.',
-    'source.openFailed': 'Toto PDF se nepodařilo otevřít: {message}. ' +
-      'Soubor chráněný heslem nebo poškozený soubor zde selže.',
+    'source.locked': 'Toto PDF je chráněné heslem, takže se nedá přečíst. ' +
+      'Uložte si kopii bez hesla a zkuste tu.',
+    'source.corrupt': 'Toto PDF je poškozené a nedá se přečíst. ' +
+      'Zkuste ho otevřít v prohlížeči PDF a uložit znovu.',
+    'source.openFailed': 'Toto PDF se nepodařilo otevřít: {message}',
+
+    // Co si nástroj zjistil sám. Ukazuje se na první obrazovce, protože
+    // rozhodnutí, které nikdo nevidí, je horší než žádné.
+    'notice.titleFromPage': 'Název kurzu jsme vzali z první stránky: „{title}“',
+    'notice.titleFromFile': 'PDF nemá vlastní název, použil se název ' +
+      'souboru: „{title}“',
+    'notice.language': 'Dokument je v {language}, kurz bude taky.',
+    // Skloněné do té věty — v nabídce jazyků stojí „Angličtina“, tady musí být
+    // „v angličtině“.
+    'lang.en': 'angličtině',
+    'lang.cs': 'češtině',
+    'notice.scanned': 'Tohle PDF je naskenované — jsou to obrázky stránek, ne ' +
+      'text. Převede se v pořádku, ale není co přiložit pro čtečky obrazovky.',
+    'notice.settings': 'Cokoli z toho můžete změnit v Nastavení.',
 
     'course.heading': 'Údaje o kurzu',
     'course.title': 'Název kurzu',

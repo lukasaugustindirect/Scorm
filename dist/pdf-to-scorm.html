@@ -304,6 +304,41 @@ code {
   border-radius: 50%;
 }
 
+/* What the tool worked out on its own: quieter than the file line, but on the
+   first screen, because a decision nobody can see is worse than no decision. */
+.notices {
+  margin: .625rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: .3125rem;
+  text-align: left;
+  font-size: .8125rem;
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+.notices[hidden] { display: none; }
+.notices li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: .5rem;
+  align-items: start;
+}
+.notices li::before {
+  content: "";
+  width: .875rem; height: .875rem;
+  margin-top: .21875rem;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23b45309' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 16v-4M12 8h.01'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  opacity: .85;
+}
+/* The last line is the way out of any of it, so it does not need a marker. */
+.notices li:last-child { color: var(--ink-soft); }
+/* The notices sit between the file line and the button, so the button needs
+   room of its own rather than butting straight up against the last one. */
+.notices:not([hidden]) + .build { margin-top: 1.25rem; }
+
 /* ---- the one action ---- */
 
 .build {
@@ -696,6 +731,8 @@ input[type="range"]::-moz-range-thumb {
     </div>
 
     <p class="filemeta" id="filemeta" hidden></p>
+    
+    <ul class="notices" id="notices" hidden></ul>
 
     <button class="build" id="build" disabled data-i18n="build.action">Vytvořit balíčky</button>
 
@@ -987,11 +1024,172 @@ window.__EMBEDDED_ASSETS = {"player/index.html":"\u003c!doctype html\u003e\n\u00
   var GlobalWorkerOptions = lib.GlobalWorkerOptions;
   var version = lib.version;
 
+  // app/derive.js
+  var PRODUCER_PREFIX = /^(microsoft\s+)?(word|powerpoint|excel|publisher|visio)\s*[-–—:]\s*/i;
+  var DOC_EXTENSION = /\.(pdf|docx?|pptx?|xlsx?|pages|key|numbers|odt|odp|ods|indd|ai|rtf|txt|tex)$/i;
+  var PLACEHOLDER_TITLE = new RegExp(
+    "^(" + [
+      "untitled",
+      "unbenannt",
+      "sans[- ]titre",
+      "senza[- ]titolo",
+      "sin[- ]t[\xEDi]tulo",
+      "bez[- ]n[\xE1a]zvu",
+      "document",
+      "dokument",
+      "documento",
+      "presentation",
+      "pr[\xE9e]sentation",
+      "pr[\xE4a]sentation",
+      "prezentace",
+      "presentazione",
+      "slides?",
+      "slide[- ]show",
+      "book",
+      "kniha",
+      "workbook",
+      "sheet",
+      "list",
+      "new (document|presentation|microsoft (word|powerpoint) document)",
+      "nov[\xFD\xE1] (dokument|prezentace)",
+      "output",
+      "print",
+      "scan",
+      "tisk",
+      "export",
+      "final",
+      "draft",
+      "kopie",
+      "copy"
+    ].join("|") + ")[\\s._-]*\\d*$",
+    "i"
+  );
+  var NO_WORDS = /^[\d\s._\-/:()[\]]+$/;
+  var VERSION_ONLY = /^v(er(sion)?)?[\s.]*\d+([._\s-]\d+)*\s*[a-z]?$/i;
+  var DIGEST = /^[0-9a-f]{16,}$/i;
+  var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  var MIN_TITLE = 3;
+  var MAX_TITLE = 160;
+  function tidySeparators(text2) {
+    return String(text2).replace(/[_]+/g, " ").replace(/\.+/g, " ").replace(/\s+/g, " ").replace(/\s+([,.;:!?])/g, "$1").trim();
+  }
+  function titleFromFilename(name) {
+    const stem = String(name).replace(DOC_EXTENSION, "");
+    return tidySeparators(stem) || String(name);
+  }
+  function readMetaTitle(raw) {
+    let text2 = String(raw == null ? "" : raw).replace(/\s+/g, " ").trim();
+    if (!text2) return { text: "", looksLikeFilename: false };
+    const stripped = text2.replace(PRODUCER_PREFIX, "").trim();
+    let looksLikeFilename = stripped !== text2;
+    if (stripped) text2 = stripped;
+    const withoutExtension = text2.replace(DOC_EXTENSION, "").trim();
+    if (withoutExtension !== text2) looksLikeFilename = true;
+    if (withoutExtension) text2 = withoutExtension;
+    if (/_/.test(text2)) looksLikeFilename = true;
+    if (/[_]/.test(text2) || !/\s/.test(text2)) text2 = tidySeparators(text2);
+    else text2 = text2.replace(/\s+/g, " ").trim();
+    return { text: text2, looksLikeFilename };
+  }
+  function isUsableTitle(title, filename) {
+    const text2 = String(title || "").trim();
+    if (text2.length < MIN_TITLE || text2.length > MAX_TITLE) return false;
+    if (!/\p{L}/u.test(text2)) return false;
+    if (NO_WORDS.test(text2)) return false;
+    if (VERSION_ONLY.test(text2)) return false;
+    if (DIGEST.test(text2) || UUID.test(text2)) return false;
+    if (PLACEHOLDER_TITLE.test(text2)) return false;
+    if (filename && text2.toLowerCase() === titleFromFilename(filename).toLowerCase()) {
+      return false;
+    }
+    return true;
+  }
+  function isUsableHeading(text2) {
+    const heading = String(text2 || "").trim();
+    if (heading.length < MIN_TITLE || heading.length > MAX_TITLE) return false;
+    if (!/\p{L}/u.test(heading)) return false;
+    if (NO_WORDS.test(heading)) return false;
+    if (PLACEHOLDER_TITLE.test(heading)) return false;
+    if (/^(page|strana|str\.?|slide|snímek)\s*\d+/i.test(heading)) return false;
+    return true;
+  }
+  function courseTitle({ metaTitle, heading, filename }) {
+    const meta = readMetaTitle(metaTitle);
+    const metaUsable = isUsableTitle(meta.text, filename);
+    if (metaUsable && !meta.looksLikeFilename) {
+      return { title: meta.text, source: "metadata" };
+    }
+    const fromPage = String(heading || "").replace(/\s+/g, " ").trim();
+    if (isUsableHeading(fromPage)) {
+      return { title: fromPage, source: "page" };
+    }
+    if (metaUsable) {
+      return { title: meta.text, source: "filename" };
+    }
+    return { title: titleFromFilename(filename), source: "filename" };
+  }
+  function courseLanguage(declared, available) {
+    const tag = String(declared || "").trim().toLowerCase();
+    if (!tag) return null;
+    const primary = tag.split(/[-_]/)[0];
+    if (!primary) return null;
+    return available.includes(primary) ? primary : null;
+  }
+  function headingFromRuns(runs) {
+    const groups = /* @__PURE__ */ new Map();
+    for (const run2 of runs || []) {
+      const text2 = String(run2 && run2.str || "");
+      if (!text2.trim()) continue;
+      const size = Math.round(Number(run2.size) * 2) / 2;
+      if (!Number.isFinite(size) || size <= 0) continue;
+      if (!groups.has(size)) groups.set(size, []);
+      groups.get(size).push(text2);
+    }
+    for (const size of [...groups.keys()].sort((a, b) => b - a)) {
+      const items = groups.get(size);
+      const singles = items.filter((s) => s.trim().length === 1).length;
+      const joined = singles > items.length / 2 ? items.join("") : items.join(" ");
+      const candidate = joined.replace(/\s+/g, " ").replace(/\s+([,.;:!?])/g, "$1").trim();
+      if (isUsableHeading(candidate)) return candidate;
+    }
+    return "";
+  }
+  function hasTextLayer(chars, sampled) {
+    if (!sampled) return false;
+    return chars >= Math.max(40, sampled * 20);
+  }
+  function samplePages(total, limit = 5) {
+    const count = Math.min(total, limit);
+    if (count <= 0) return [];
+    if (total <= limit) return Array.from({ length: total }, (_, i) => i + 1);
+    const pages = /* @__PURE__ */ new Set();
+    for (let i = 0; i < count; i++) {
+      pages.add(1 + Math.round(i * (total - 1) / (count - 1)));
+    }
+    return [...pages].sort((a, b) => a - b);
+  }
+  function failureKey(err) {
+    const name = err && err.name;
+    if (name === "PasswordException") return "source.locked";
+    if (name === "InvalidPDFException") return "source.corrupt";
+    const message = String(err && err.message || "");
+    if (/password/i.test(message)) return "source.locked";
+    if (/invalid pdf|no pdf header|structure/i.test(message)) return "source.corrupt";
+    return null;
+  }
+
   // app/pdf-render.js
   var OVERRIDES = typeof window !== "undefined" && window.__PDF_OVERRIDES || {};
   GlobalWorkerOptions.workerSrc = OVERRIDES.workerSrc || new URL("../vendor/pdf.worker.min.mjs", "").href;
   var STANDARD_FONTS = "standardFontDataUrl" in OVERRIDES ? OVERRIDES.standardFontDataUrl : new URL("../vendor/standard_fonts/", "").href;
   var POINTS_PER_INCH = 72;
+  async function textRuns(page) {
+    const content = await page.getTextContent();
+    return content.items.map((item) => ({
+      str: item.str || "",
+      size: Math.hypot(item.transform[2], item.transform[3])
+    }));
+  }
   async function peek(bytes) {
     const task = getDocument({
       data: bytes,
@@ -1002,11 +1200,32 @@ window.__EMBEDDED_ASSETS = {"player/index.html":"\u003c!doctype html\u003e\n\u00
     try {
       const meta = await doc.getMetadata().catch(() => ({ info: {} }));
       const info = meta.info || {};
+      let heading = "";
+      try {
+        heading = headingFromRuns(await textRuns(await doc.getPage(1)));
+      } catch {
+      }
+      const sampled = samplePages(doc.numPages);
+      let textChars = 0;
+      for (const n of sampled) {
+        try {
+          const runs = await textRuns(await doc.getPage(n));
+          for (const run2 of runs) textChars += run2.str.trim().length;
+        } catch {
+        }
+      }
       return {
         numPages: doc.numPages,
         title: (info.Title || "").trim(),
         author: (info.Author || "").trim(),
-        subject: (info.Subject || "").trim()
+        subject: (info.Subject || "").trim(),
+        // pdf.js surfaces the catalog's /Lang here. Measured on a real document:
+        // most carry nothing, but the ones that do are worth believing.
+        language: (info.Language || "").trim(),
+        heading,
+        textChars,
+        sampledPages: sampled.length,
+        hasText: hasTextLayer(textChars, sampled.length)
       };
     } finally {
       await task.destroy();
@@ -1408,7 +1627,20 @@ ${fileList}
       "source.page": "page",
       "source.pages": "pages",
       "source.notPdf": "{name} does not look like a PDF.",
-      "source.openFailed": "This PDF could not be opened: {message}. A password-protected or corrupt file will fail here.",
+      "source.locked": "This PDF is password-protected, so it cannot be read. Save a copy without the password and try that one.",
+      "source.corrupt": "This PDF is damaged and cannot be read. Try opening it in a PDF reader and saving a fresh copy.",
+      "source.openFailed": "This PDF could not be opened: {message}",
+      // What the tool worked out for itself. Shown on the first screen, because a
+      // decision nobody can see is worse than no decision.
+      "notice.titleFromPage": "Course name taken from the first page: \u201C{title}\u201D",
+      "notice.titleFromFile": "The PDF carries no title, so the file name is used: \u201C{title}\u201D",
+      "notice.language": "The document is in {language}, so the course will be too.",
+      // Language names as they read inside that sentence, which is not the same
+      // as the names in the picker: Czech needs a case ending there.
+      "lang.en": "English",
+      "lang.cs": "Czech",
+      "notice.scanned": "This PDF is scanned \u2014 it holds pictures of pages, not text. It converts fine, but there is nothing to attach for screen readers.",
+      "notice.settings": "Anything here can be changed under Settings.",
       "course.heading": "Course details",
       "course.title": "Course title",
       "course.titlePlaceholder": "Taken from the PDF if left empty",
@@ -1483,7 +1715,20 @@ ${fileList}
       "source.page": "str\xE1nka",
       "source.pages": "str\xE1nek",
       "source.notPdf": "Soubor {name} nevypad\xE1 jako PDF.",
-      "source.openFailed": "Toto PDF se nepoda\u0159ilo otev\u0159\xEDt: {message}. Soubor chr\xE1n\u011Bn\xFD heslem nebo po\u0161kozen\xFD soubor zde sel\u017Ee.",
+      "source.locked": "Toto PDF je chr\xE1n\u011Bn\xE9 heslem, tak\u017Ee se ned\xE1 p\u0159e\u010D\xEDst. Ulo\u017Ete si kopii bez hesla a zkuste tu.",
+      "source.corrupt": "Toto PDF je po\u0161kozen\xE9 a ned\xE1 se p\u0159e\u010D\xEDst. Zkuste ho otev\u0159\xEDt v prohl\xED\u017Ee\u010Di PDF a ulo\u017Eit znovu.",
+      "source.openFailed": "Toto PDF se nepoda\u0159ilo otev\u0159\xEDt: {message}",
+      // Co si nástroj zjistil sám. Ukazuje se na první obrazovce, protože
+      // rozhodnutí, které nikdo nevidí, je horší než žádné.
+      "notice.titleFromPage": "N\xE1zev kurzu jsme vzali z prvn\xED str\xE1nky: \u201E{title}\u201C",
+      "notice.titleFromFile": "PDF nem\xE1 vlastn\xED n\xE1zev, pou\u017Eil se n\xE1zev souboru: \u201E{title}\u201C",
+      "notice.language": "Dokument je v {language}, kurz bude taky.",
+      // Skloněné do té věty — v nabídce jazyků stojí „Angličtina“, tady musí být
+      // „v angličtině“.
+      "lang.en": "angli\u010Dtin\u011B",
+      "lang.cs": "\u010De\u0161tin\u011B",
+      "notice.scanned": "Tohle PDF je naskenovan\xE9 \u2014 jsou to obr\xE1zky str\xE1nek, ne text. P\u0159evede se v po\u0159\xE1dku, ale nen\xED co p\u0159ilo\u017Eit pro \u010Dte\u010Dky obrazovky.",
+      "notice.settings": "Cokoli z toho m\u016F\u017Eete zm\u011Bnit v Nastaven\xED.",
       "course.heading": "\xDAdaje o kurzu",
       "course.title": "N\xE1zev kurzu",
       "course.titlePlaceholder": "Pokud nech\xE1te pr\xE1zdn\xE9, p\u0159evezme se z PDF",
@@ -1695,6 +1940,7 @@ ${fileList}
     drop: el("drop"),
     file: el("file"),
     filemeta: el("filemeta"),
+    notices: el("notices"),
     title: el("title"),
     description: el("description"),
     identifier: el("identifier"),
@@ -1831,22 +2077,63 @@ ${fileList}
     ui.results.hidden = true;
     ui.previewCard.hidden = true;
     ui.preview.replaceChildren();
-    const stem = titleFromFilename(file.name);
     ui.filemeta.hidden = false;
+    ui.notices.hidden = true;
+    ui.notices.replaceChildren();
     ui.filemeta.textContent = `${file.name} \u2014 ${formatBytes(file.size)}, ${t("source.reading")}`;
     try {
       const info = await peek(await file.arrayBuffer());
       pdfInfo = info;
       describeFile(file, info);
-      if (!ui.title.value) ui.title.value = info.title || stem;
-      if (!ui.description.value && info.subject) ui.description.value = info.subject;
+      adoptFromPdf(file, info);
       ui.build.disabled = false;
     } catch (err) {
       pdfFile = null;
       pdfInfo = null;
       ui.build.disabled = true;
       ui.filemeta.textContent = `${file.name} \u2014 ${formatBytes(file.size)}`;
-      fail(t("source.openFailed", { message: err.message }));
+      fail(describeFailure(err));
+    }
+  }
+  function describeFailure(err) {
+    const key = failureKey(err);
+    return key ? t(key) : t("source.openFailed", { message: err && err.message || String(err) });
+  }
+  function adoptFromPdf(file, info) {
+    const notes = [];
+    if (!ui.title.value) {
+      const picked = courseTitle({
+        metaTitle: info.title,
+        heading: info.heading,
+        filename: file.name
+      });
+      ui.title.value = picked.title;
+      if (picked.source === "page") {
+        notes.push(t("notice.titleFromPage", { title: picked.title }));
+      } else if (picked.source === "filename") {
+        notes.push(t("notice.titleFromFile", { title: picked.title }));
+      }
+    }
+    if (!ui.description.value && info.subject) ui.description.value = info.subject;
+    if (!courseLanguagePinned) {
+      const declared = courseLanguage(info.language, LANGUAGES.map((l) => l.code));
+      if (declared && declared !== ui.language.value) {
+        ui.language.value = declared;
+        notes.push(t("notice.language", { language: t(`lang.${declared}`) || declared }));
+      }
+    }
+    if (!info.hasText) {
+      ui.extractText.checked = false;
+      notes.push(t("notice.scanned"));
+    }
+    if (notes.length) {
+      notes.push(t("notice.settings"));
+      ui.notices.replaceChildren(...notes.map((text2) => {
+        const li = document.createElement("li");
+        li.textContent = text2;
+        return li;
+      }));
+      ui.notices.hidden = false;
     }
   }
   ui.quality.addEventListener("input", () => {
@@ -2018,9 +2305,6 @@ ${fileList}
   function clearError() {
     ui.error.hidden = true;
     ui.error.textContent = "";
-  }
-  function titleFromFilename(name) {
-    return name.replace(/\.pdf$/i, "").replace(/[_]+/g, " ").replace(/\.+/g, " ").replace(/\s+/g, " ").trim() || name;
   }
   function formatBytes(bytes) {
     if (bytes < 1024) return `${bytes} B`;
