@@ -293,6 +293,42 @@ async function main() {
       problems.push(`UI reported an error: ${await page.textContent('#error')}`);
     }
 
+    // The one instruction the download has to carry. Someone downloaded a
+    // package, Safari unzipped it for them, and they went looking for "the
+    // SCORM file" in a folder that cannot be imported anywhere -- with the
+    // screen offering no hint that the zip was the deliverable.
+    const hint = await page.evaluate(() => {
+      const box = document.getElementById('upload-hint');
+      if (!box) return null;
+      const bundleLine = document.getElementById('bundle-hint');
+      const bundleOffered = !document.getElementById('download-all').hidden
+        || !document.getElementById('download-formats').hidden;
+      return {
+        shown: box.checkVisibility(),
+        text: (box.textContent || '').trim(),
+        bundleLineShown: !!bundleLine && bundleLine.checkVisibility(),
+        bundleOffered,
+      };
+    });
+    if (!hint || !hint.shown) {
+      problems.push('the results panel does not tell the user to upload the zip unopened');
+    } else if (!/zip/i.test(hint.text) || !/imsmanifest/i.test(hint.text)) {
+      problems.push(`the upload hint does not name the zip and the manifest: ${hint.text}`);
+    } else {
+      console.log('  ok   says to upload the zip unopened, and what makes it SCORM');
+    }
+    // "Do not unzip" is false about a bundle -- that one holds a package per
+    // format and has to be opened -- so the extra line has to track whether a
+    // bundle is really on offer, in both directions.
+    if (hint && hint.bundleLineShown !== hint.bundleOffered) {
+      problems.push(
+        `the bundle line is ${hint.bundleLineShown ? 'shown' : 'hidden'} while a bundle `
+        + `is ${hint.bundleOffered ? 'offered' : 'not offered'}`,
+      );
+    } else if (hint) {
+      console.log(`  ok   explains the bundle only when one is offered (${hint.bundleOffered})`);
+    }
+
     // Second pass with the schema files included. The default is off, so both
     // paths need exercising: the conditional xsi:schemaLocation is only
     // correct if the files it points at are actually there.

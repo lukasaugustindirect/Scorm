@@ -527,6 +527,24 @@ code {
 }
 .dl:hover { background: var(--accent-hover); }
 
+/* The note under the downloads. Amber wash rather than a warning colour: it is
+   the one instruction that has to land, not an error. */
+.results__hint {
+  margin: 1rem 0 0;
+  padding: .8125rem .9375rem;
+  font-size: .875rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  background: var(--accent-wash);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-sm);
+}
+.results__hint p { margin: 0; }
+.results__hint p + p { margin-top: .5rem; }
+.results__hint p[hidden] { display: none; }
+/* The browser-behaviour footnote is context, not the instruction. */
+.results__hint-aside { font-size: .8125rem; color: var(--ink-muted); }
+
 /* ---- settings, folded ---- */
 
 .settings {

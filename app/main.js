@@ -55,6 +55,7 @@ const ui = {
   resultsList: el('results-list'),
   downloadAll: el('download-all'),
   downloadFormats: el('download-formats'),
+  bundleHint: el('bundle-hint'),
   previewCard: el('preview-card'),
   preview: el('preview'),
 };
@@ -747,6 +748,10 @@ function showResults(batch, standards) {
   // combined zip rather than one click each.
   ui.downloadAll.hidden = bulk || all.length < 2;
   ui.downloadFormats.hidden = !bulk;
+  // A bundle is the one download that HAS to be opened: it holds a package per
+  // course or per format. Saying "do not unzip" about it would be false, so the
+  // line appears only when a bundle is actually on offer.
+  ui.bundleHint.hidden = ui.downloadAll.hidden && ui.downloadFormats.hidden;
   ui.downloadFormats.replaceChildren();
 
   if (!bulk) {

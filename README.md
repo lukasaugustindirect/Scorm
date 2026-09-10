@@ -92,6 +92,24 @@ Sana takes SCORM 1.2 and SCORM 2004, as a `.zip` — not an unzipped folder:
 **Manage → Content → Import → SCORM**. SCORM 1.2 is what this tool builds by
 default, so a package is ready to import as it comes out.
 
+**Upload the ZIP unopened.** SCORM is not a file extension; it is that zip, and
+what makes it SCORM is the `imsmanifest.xml` at its root. This trips people up
+for a mundane reason: Safari unzips downloads by default, so what lands in
+Downloads is a *folder* — and someone then goes looking for "the SCORM file",
+finds `imsmanifest.xml`, `index.html`, `player.js` and no such thing, and has
+nothing an LMS will accept. The converter now says so on screen after a build.
+
+If the zip really is gone, re-download it rather than re-zipping. A folder
+compressed in Finder puts `imsmanifest.xml` one level down inside the archive,
+and an LMS reads the root only — which is the single most common cause of a
+failed SCORM import anywhere. Re-zipping by hand works only if you select the
+*contents* of the folder, all of `content/`, `imsmanifest.xml`, `index.html`,
+`lms-adapter.js`, `player.css` and `player.js`, rather than the folder itself.
+
+A combined download is the opposite case: `scorm12-5-courses.zip` is an
+envelope holding five course packages, so that one gets unzipped and the
+packages inside it uploaded one at a time. The screen says which kind you have.
+
 Three things about Sana that shape how a package behaves, and how this tool
 handles each:
 
@@ -415,8 +433,8 @@ A real end-to-end run, not unit tests around mocks. It:
    holds exactly one correctly named package per course with the edited title
    and each document's own language.
 
-Current state: **578 assertions, all passing** (85 rule checks in plain
-Node, 169 run-time in the browser, 324 structural).
+Current state: **581 assertions, all passing** (85 rule checks in plain
+Node, 172 run-time in the browser, 324 structural).
 
 Step 6 needs `xmllint`; without it the schema checks are skipped loudly rather
 than passing quietly. Everything else needs only Node and, for the build, the

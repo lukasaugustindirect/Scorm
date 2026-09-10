@@ -91,6 +91,7 @@ export async function testBulk(page, outDir, base) {
     courses: [...document.querySelectorAll('#results-list .results__course')].map((c) => c.textContent),
     formatButtons: document.querySelectorAll('#download-formats button').length,
     downloadAllHidden: document.getElementById('download-all').hidden,
+    bundleHintShown: document.getElementById('bundle-hint').checkVisibility(),
     error: document.getElementById('error').hidden ? '' : document.getElementById('error').textContent,
   }));
   expect(!results.error, 'builds the batch without an error', results.error);
@@ -99,6 +100,10 @@ export async function testBulk(page, outDir, base) {
   expect(results.formatButtons === 4 && results.downloadAllHidden,
          'offers one bundle per format instead of one for everything',
          `${results.formatButtons} buttons`);
+  // Here the bundle IS the download, so the panel has to say that this one
+  // gets opened -- the opposite of the advice for a single course package.
+  expect(results.bundleHintShown,
+         'says that a per-format bundle has to be unzipped for the packages inside');
   const labels = [...new Set(results.courses)];
   expect(labels.length === 3 && labels.includes('Fire safety 2026'),
          'labels each package with its course, including the edited title',

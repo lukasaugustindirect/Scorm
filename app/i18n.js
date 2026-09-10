@@ -190,6 +190,15 @@ export const UI_STRINGS = {
     'build.results': 'Packages',
     'build.download': 'Download',
     'build.downloadAll': 'Download all as one zip',
+    'build.uploadHint': 'Upload one course ZIP to your LMS and do not unzip it: ' +
+      'SCORM is not a single file, it is that ZIP, and what makes it SCORM is ' +
+      'the imsmanifest.xml inside it.',
+    'build.bundleHint': 'A combined download (all formats, or one ZIP per format) ' +
+      'is only an envelope holding several course packages — unzip that one, and ' +
+      'upload the individual ZIPs from inside it.',
+    'build.unzipWarning': 'If your browser unzips downloads on its own (Safari does, ' +
+      'by default), an LMS cannot take the unpacked folder — download it again or ' +
+      'turn that off.',
     'build.bundleFailed': 'Could not bundle the packages: {message}',
     'build.preview': 'Rendered pages',
     'build.more': '+{count} more',
@@ -312,6 +321,15 @@ export const UI_STRINGS = {
     'build.results': 'Balíčky',
     'build.download': 'Stáhnout',
     'build.downloadAll': 'Stáhnout vše v jednom ZIP',
+    'build.uploadHint': 'Do LMS nahrajte ZIP jednoho kurzu a nerozbalujte ho: ' +
+      'SCORM není jeden soubor, je to právě ten ZIP, a dělá z něj SCORM ' +
+      'soubor imsmanifest.xml uvnitř.',
+    'build.bundleHint': 'Sbalené stažení (vše najednou nebo jeden ZIP na formát) ' +
+      'je jen obálka s více balíčky — tu rozbalte a do LMS nahrajte jednotlivé ' +
+      'ZIPy z ní.',
+    'build.unzipWarning': 'Pokud prohlížeč rozbaluje stažené soubory sám (Safari to ' +
+      've výchozím stavu dělá), rozbalenou složku LMS nevezme — stáhněte ZIP znovu ' +
+      'nebo to v prohlížeči vypněte.',
     'build.bundleFailed': 'Balíčky se nepodařilo spojit: {message}',
     'build.preview': 'Vykreslené stránky',
     'build.more': 'a další: {count}',

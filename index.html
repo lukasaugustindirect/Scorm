@@ -60,6 +60,27 @@
       <!-- A batch: one bundle per format, since an LMS imports one zip per
            course and format and a bulk upload wants them sorted by kind. -->
       <div class="downloads" id="download-formats" hidden></div>
+      <!-- Said out loud because it actually went wrong: Safari unzips downloads
+           by default, and the unzipped folder cannot be imported anywhere. A
+           person then looks for "the SCORM file" and finds no such thing.
+           The bundle line is shown only when a bundle is on offer, because for
+           a bundle the instruction is the opposite one: that ZIP holds several
+           packages and has to be opened. -->
+      <div class="results__hint" id="upload-hint">
+        <p data-i18n="build.uploadHint">
+          Do LMS nahrajte ZIP jednoho kurzu a nerozbalujte ho: SCORM není jeden
+          soubor, je to právě ten ZIP, a dělá z něj SCORM soubor imsmanifest.xml
+          uvnitř.
+        </p>
+        <p id="bundle-hint" hidden data-i18n="build.bundleHint">
+          Sbalené stažení je jen obálka s více balíčky — tu rozbalte a do LMS
+          nahrajte jednotlivé ZIPy z ní.
+        </p>
+        <p class="results__hint-aside" data-i18n="build.unzipWarning">
+          Pokud prohlížeč rozbaluje stažené soubory sám, rozbalenou složku LMS
+          nevezme.
+        </p>
+      </div>
     </div>
   </section>
 

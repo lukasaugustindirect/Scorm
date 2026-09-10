@@ -573,6 +573,24 @@ code {
 }
 .dl:hover { background: var(--accent-hover); }
 
+/* The note under the downloads. Amber wash rather than a warning colour: it is
+   the one instruction that has to land, not an error. */
+.results__hint {
+  margin: 1rem 0 0;
+  padding: .8125rem .9375rem;
+  font-size: .875rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  background: var(--accent-wash);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-sm);
+}
+.results__hint p { margin: 0; }
+.results__hint p + p { margin-top: .5rem; }
+.results__hint p[hidden] { display: none; }
+/* The browser-behaviour footnote is context, not the instruction. */
+.results__hint-aside { font-size: .8125rem; color: var(--ink-muted); }
+
 /* ---- settings, folded ---- */
 
 .settings {
@@ -848,6 +866,22 @@ input[type="range"]::-moz-range-thumb {
       </button>
       
       <div class="downloads" id="download-formats" hidden></div>
+      
+      <div class="results__hint" id="upload-hint">
+        <p data-i18n="build.uploadHint">
+          Do LMS nahrajte ZIP jednoho kurzu a nerozbalujte ho: SCORM není jeden
+          soubor, je to právě ten ZIP, a dělá z něj SCORM soubor imsmanifest.xml
+          uvnitř.
+        </p>
+        <p id="bundle-hint" hidden data-i18n="build.bundleHint">
+          Sbalené stažení je jen obálka s více balíčky — tu rozbalte a do LMS
+          nahrajte jednotlivé ZIPy z ní.
+        </p>
+        <p class="results__hint-aside" data-i18n="build.unzipWarning">
+          Pokud prohlížeč rozbaluje stažené soubory sám, rozbalenou složku LMS
+          nevezme.
+        </p>
+      </div>
     </div>
   </section>
 
@@ -1870,6 +1904,9 @@ ${fileList}
       "build.results": "Packages",
       "build.download": "Download",
       "build.downloadAll": "Download all as one zip",
+      "build.uploadHint": "Upload one course ZIP to your LMS and do not unzip it: SCORM is not a single file, it is that ZIP, and what makes it SCORM is the imsmanifest.xml inside it.",
+      "build.bundleHint": "A combined download (all formats, or one ZIP per format) is only an envelope holding several course packages \u2014 unzip that one, and upload the individual ZIPs from inside it.",
+      "build.unzipWarning": "If your browser unzips downloads on its own (Safari does, by default), an LMS cannot take the unpacked folder \u2014 download it again or turn that off.",
       "build.bundleFailed": "Could not bundle the packages: {message}",
       "build.preview": "Rendered pages",
       "build.more": "+{count} more",
@@ -1967,6 +2004,9 @@ ${fileList}
       "build.results": "Bal\xED\u010Dky",
       "build.download": "St\xE1hnout",
       "build.downloadAll": "St\xE1hnout v\u0161e v jednom ZIP",
+      "build.uploadHint": "Do LMS nahrajte ZIP jednoho kurzu a nerozbalujte ho: SCORM nen\xED jeden soubor, je to pr\xE1v\u011B ten ZIP, a d\u011Bl\xE1 z n\u011Bj SCORM soubor imsmanifest.xml uvnit\u0159.",
+      "build.bundleHint": "Sbalen\xE9 sta\u017Een\xED (v\u0161e najednou nebo jeden ZIP na form\xE1t) je jen ob\xE1lka s v\xEDce bal\xED\u010Dky \u2014 tu rozbalte a do LMS nahrajte jednotliv\xE9 ZIPy z n\xED.",
+      "build.unzipWarning": "Pokud prohl\xED\u017Ee\u010D rozbaluje sta\u017Een\xE9 soubory s\xE1m (Safari to ve v\xFDchoz\xEDm stavu d\u011Bl\xE1), rozbalenou slo\u017Eku LMS nevezme \u2014 st\xE1hn\u011Bte ZIP znovu nebo to v prohl\xED\u017Ee\u010Di vypn\u011Bte.",
       "build.bundleFailed": "Bal\xED\u010Dky se nepoda\u0159ilo spojit: {message}",
       "build.preview": "Vykreslen\xE9 str\xE1nky",
       "build.more": "a dal\u0161\xED: {count}",
@@ -2171,6 +2211,7 @@ ${fileList}
     resultsList: el("results-list"),
     downloadAll: el("download-all"),
     downloadFormats: el("download-formats"),
+    bundleHint: el("bundle-hint"),
     previewCard: el("preview-card"),
     preview: el("preview")
   };
@@ -2661,6 +2702,7 @@ ${fileList}
     const all = batch.flatMap((entry) => entry.built);
     ui.downloadAll.hidden = bulk || all.length < 2;
     ui.downloadFormats.hidden = !bulk;
+    ui.bundleHint.hidden = ui.downloadAll.hidden && ui.downloadFormats.hidden;
     ui.downloadFormats.replaceChildren();
     if (!bulk) {
       const entry = batch[0];
