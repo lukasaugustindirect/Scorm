@@ -1,0 +1,394 @@
+/* Player styling.
+ *
+ * Same warm parchment and amber as the converter, so a learner opening the
+ * course recognises the thing it was made with. Repeated here rather than
+ * shared because this file ships inside every package and has to stand alone in
+ * an LMS, with no build step and nothing to import.
+ *
+ * Deliberately NOT carrying the converter's embedded typeface: that is 175 kB,
+ * and it would ride along in every package a learner downloads for a page-turner
+ * whose text is inside the page images anyway. System fonts here.
+ *
+ * The palette rule from app/app.css holds: bright amber is a FILL, carrying
+ * near-black text at 8.8:1, because white on it measures 2.15:1 and is
+ * unreadable. Where amber has to BE text or an icon on white it drops to
+ * amber-700, which reaches 5.0:1. Amber is flat -- never a gradient.
+ *
+ * An LMS drops this page into an iframe of unpredictable size, so everything is
+ * fluid and nothing assumes a viewport width.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  --background: #fffefb;
+  --foreground: #1c1917;
+  /* The filled surfaces: amber ground, near-black text on top. */
+  --primary: #f59e0b;
+  --primary-hover: #e8940a;
+  --primary-foreground: #1c1917;
+  /* Amber as text or an icon, where it has to pass AA on white. */
+  --primary-ink: #b45309;
+  --muted: #f7f4ed;
+  --muted-foreground: #857f76;
+  --accent: #fdf6e7;
+  --border: #e6e0d3;
+  --input: #d5cdbc;
+  --ring: #f3d9a0;
+  --destructive: #c2410c;
+  --success: #047857;
+
+  /* The page needs a surface a white sheet of paper can sit on and still read
+     as a distinct object: the parchment, one step down. */
+  --stage: #f2eee4;
+
+  --radius: 0.625rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+
+  --bar-h: 3rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #1e1b16;
+    --foreground: #faf8f4;
+    --primary: #f59e0b;
+    --primary-hover: #fbbf24;
+    --primary-foreground: #1c1917;
+    /* On a dark ground amber is already legible as text, so it stays bright. */
+    --primary-ink: #fbbf24;
+    --muted: #2b261f;
+    --muted-foreground: #9c948a;
+    --accent: rgba(245, 158, 11, .12);
+    --border: rgba(255, 255, 255, .09);
+    --input: rgba(255, 255, 255, .16);
+    --ring: rgba(245, 158, 11, .5);
+    --destructive: #fb923c;
+    --success: #34d399;
+    --stage: #100e0b;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+  color: var(--foreground);
+  background: var(--stage);
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ---- bars ---- */
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex: 0 0 auto;
+  min-height: var(--bar-h);
+  padding: 0 .625rem;
+  background: var(--background);
+  border-color: var(--border);
+  border-style: solid;
+  border-width: 0;
+}
+.bar--top { border-bottom-width: 1px; }
+.bar--bottom { border-top-width: 1px; justify-content: space-between; }
+
+.bar__right {
+  display: flex;
+  align-items: center;
+  gap: .375rem;
+  margin-left: auto;
+  /* Without this the group's automatic minimum is the min-content width of the
+     status text, so setting min-width on the status itself achieves nothing and
+     the bar still overflows. Measured: 25px of sideways scroll at 320px. */
+  min-width: 0;
+}
+
+.course-title {
+  margin: 0;
+  font-size: .9375rem;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status {
+  font-size: .75rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  /* A flex item's automatic minimum is its min-content width, and nowrap text
+     has no smaller size to fall back to -- so without these the bar overflows
+     on a narrow screen instead of the message getting shorter. Measured: 1px
+     of sideways scroll at 320px. The full text is also announced as a toast
+     when it reports a problem, so truncating here loses nothing. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.status[data-state="ok"] { color: var(--success); }
+.status[data-state="error"] { color: var(--destructive); }
+
+/* ---- buttons ---- */
+
+.icon-btn, .nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .25rem;
+  font: inherit;
+  font-weight: 500;
+  color: var(--foreground);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color .15s, border-color .15s, color .15s;
+}
+.icon-btn { width: 2rem; height: 2rem; }
+/* Never let the bar reclaim space from a control: it shrank the hamburger to
+   30px on a phone. The title and the status give way instead, below. */
+.icon-btn, .nav-btn, .page-input { flex: 0 0 auto; }
+.nav-btn {
+  height: 2rem;
+  padding: 0 .75rem;
+  border-color: var(--input);
+  white-space: nowrap;
+}
+.nav-btn--return {
+  color: var(--primary-foreground);
+  background: var(--primary);
+  border-color: transparent;
+  font-weight: 600;
+  font-size: .8125rem;
+}
+.nav-btn--return[hidden] { display: none; }
+.nav-btn--return:hover { background: var(--primary-hover); }
+
+.icon-btn:hover, .nav-btn:not(.nav-btn--return):hover:not(:disabled) {
+  background: var(--accent);
+}
+/* The rail toggle marks itself while the rail is showing. Amber-as-text here,
+   so it takes the darker shade rather than sitting on a fill. */
+.icon-btn[aria-expanded="true"] { color: var(--primary-ink); background: var(--accent); }
+.nav-btn:disabled { opacity: .4; cursor: default; }
+
+.icon-bars, .icon-bars::before, .icon-bars::after {
+  display: block;
+  width: .875rem; height: 1.5px;
+  background: currentColor;
+  border-radius: 1px;
+}
+.icon-bars { position: relative; }
+.icon-bars::before, .icon-bars::after { content: ""; position: absolute; left: 0; }
+.icon-bars::before { top: -4px; }
+.icon-bars::after { top: 4px; }
+
+/* ---- layout ---- */
+
+.body { display: flex; flex: 1 1 auto; min-height: 0; }
+
+.thumbs {
+  flex: 0 0 9rem;
+  overflow-y: auto;
+  padding: .5rem;
+  background: var(--background);
+  border-right: 1px solid var(--border);
+}
+.thumbs[hidden] { display: none; }
+
+.thumb {
+  display: block;
+  width: 100%;
+  margin: 0 0 .5rem;
+  padding: 0;
+  background: none;
+  border: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  line-height: 0;
+}
+.thumb img {
+  width: 100%;
+  height: auto;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+.thumb__n {
+  display: block;
+  font-size: .6875rem;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.thumb[aria-current="true"] { border-color: var(--primary); }
+.thumb:hover:not([aria-current="true"]) { border-color: var(--ring); }
+.thumb[data-seen="true"] .thumb__n::after { content: " ✓"; color: var(--success); }
+
+.stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: auto;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: var(--stage);
+}
+
+.page { margin: 0; line-height: 0; }
+.page__img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  background: #fff;
+  border-radius: 2px;
+  /* Two layers: a hairline to define the paper edge, then a soft lift. */
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .08), 0 4px 16px rgba(0, 0, 0, .12);
+}
+
+.stage[data-zoom="width"]  { place-items: start center; }
+.stage[data-zoom="width"]  .page__img { width: 100%; max-width: none; }
+.stage[data-zoom="page"]   .page__img { max-height: calc(100vh - var(--bar-h) * 2 - 2.5rem); width: auto; }
+.stage[data-zoom="actual"] { place-items: start; }
+.stage[data-zoom="actual"] .page__img { max-width: none; width: auto; }
+
+.loading {
+  position: absolute;
+  margin: 0;
+  padding: .5rem .875rem;
+  border-radius: var(--radius-md);
+  background: var(--background);
+  border: 1px solid var(--border);
+  color: var(--muted-foreground);
+}
+.loading[hidden] { display: none; }
+
+/* ---- progress ---- */
+
+.progress-group { display: flex; align-items: center; gap: .625rem; min-width: 0; }
+
+.page-input {
+  width: 3.25rem;
+  height: 2rem;
+  padding: 0 .375rem;
+  font: inherit;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+  background: transparent;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
+}
+.page-count {
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.progress {
+  width: clamp(3rem, 22vw, 11rem);
+  height: .375rem;
+  background: var(--muted);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.progress__fill {
+  width: 0;
+  height: 100%;
+  background: var(--primary);
+  border-radius: inherit;
+  transition: width .2s ease;
+}
+.progress-label {
+  font-size: .75rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--bar-h) + 1rem);
+  transform: translateX(-50%);
+  padding: .5rem .875rem;
+  border-radius: var(--radius-md);
+  color: var(--primary-foreground);
+  background: var(--primary);
+  font-size: .8125rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .2);
+}
+.toast[hidden] { display: none; }
+
+/* Narrow iframes: the thumbnail rail would leave nothing for the page, so it
+   floats over the stage instead of taking a column from it. The player closes
+   it as soon as a page is picked -- on a phone it covers 69% of the page, and
+   leaving it open means the learner cannot see what they just chose. That
+   behaviour keys off `position: absolute` being in force, so this breakpoint
+   stays the single place the decision lives. */
+@media (max-width: 34rem) {
+  .thumbs {
+    position: absolute;
+    z-index: 5;
+    top: var(--bar-h); bottom: var(--bar-h); left: 0;
+    /* Wide enough for a readable thumbnail, narrow enough to leave the page
+       showing behind it, and it is a drawer now rather than a column. */
+    flex-basis: 8rem;
+    width: 8rem;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, .18);
+  }
+  .progress, .progress-label { display: none; }
+  .nav-btn { padding: 0 .5rem; }
+}
+
+/* A finger is not a mouse pointer. Apple's guideline is 44pt, Material's 48dp,
+   and WCAG 2.2 SC 2.5.8 sets the floor at 24px -- the old 28px controls passed
+   the floor and missed both guidelines. Keyed off a coarse pointer as well as
+   width, so a touch tablet at 800px gets them too. */
+@media (pointer: coarse), (max-width: 34rem) {
+  /* In px on purpose. `html` sets `font: 14px`, so 1rem is 14px here, and the
+     obvious 2.75rem lands at 39px -- measured, after writing exactly that. A
+     fingertip target is a physical size; it should not track the type scale. */
+  :root { --bar-h: 56px; }
+  .icon-btn { width: 44px; height: 44px; }
+  .nav-btn, .page-input { height: 44px; }
+  .icon-bars, .icon-bars::before, .icon-bars::after { width: 1.125rem; }
+  /* Touch scrolling in the drawer should not fight the page image. */
+  .thumbs { -webkit-overflow-scrolling: touch; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; }
+}

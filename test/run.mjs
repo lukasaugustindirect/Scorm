@@ -1,0 +1,432 @@
+#!/usr/bin/env node
+// End-to-end test.
+//
+// Drives the real converter in a real browser against a generated PDF, saves
+// every package it produces, then hands the zips to verify.py for inspection.
+// Nothing here stubs pdf.js or JSZip: the point is to catch the things that
+// only break in a browser, such as a worker that will not start or a manifest
+// that comes out malformed.
+
+import { spawn, execSync } from 'node:child_process';
+import { createServer } from 'node:net';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { existsSync, readdirSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { makePdf } from './fixture.mjs';
+import { testPlayer } from './player.mjs';
+import { testStatements } from './statements.mjs';
+import { testSingleFile } from './single.mjs';
+import { testOffline } from './offline.mjs';
+import { testAwkward } from './awkward.mjs';
+import { testBulk } from './bulk.mjs';
+import { testMobile } from './mobile.mjs';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(HERE, '..');
+const OUT = join(HERE, 'output');
+
+const FIXTURE_PAGES = 3;
+// Diacritics on purpose: this tool is aimed at Czech course authors, so a
+// title has to survive PDF metadata -> the UI field -> UTF-8 manifest XML ->
+// the zip. Mirrored as COURSE_TITLE in verify.py, which checks the far end.
+const FIXTURE_TITLE = 'Bezpečnost práce 2026';
+const STANDARDS = ['scorm12', 'scorm2004', 'xapi', 'cmi5'];
+
+/**
+ * Every Playwright this machine offers, most local first.
+ *
+ * There can be more than one, and they need not agree: a local install pulled
+ * in by `npm install` expects the browser build of its own release, while a
+ * pre-provisioned environment may carry a different one globally. Rather than
+ * pick and hope, collect them all and let launch() find a working pair.
+ */
+async function loadPlaywrights() {
+  const found = [];
+  const add = (mod) => {
+    // Playwright is CommonJS, so importing it by path yields a namespace whose
+    // only member is `default`; an ESM-aware resolution exposes it directly.
+    const api = mod && (mod.chromium ? mod : mod.default);
+    if (api && api.chromium) found.push(api);
+  };
+
+  try {
+    add(await import('playwright'));
+  } catch { /* no local install */ }
+
+  try {
+    const root = execSync('npm root -g', { encoding: 'utf8' }).trim();
+    add(await import(pathToFileURL(join(root, 'playwright', 'index.js')).href));
+  } catch { /* no global install */ }
+
+  if (!found.length) throw new Error('Playwright is not installed');
+  return found;
+}
+
+/**
+ * Chromium binaries actually present, whatever build number they carry.
+ * Playwright stores them as chromium-<build>/, and that number tracks the
+ * Playwright release rather than anything we control, so this looks instead of
+ * assuming a path.
+ */
+function installedChromium() {
+  const base = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  if (!base) return [];
+
+  const layouts = [
+    join('chrome-linux', 'chrome'),
+    join('chrome-headless-shell-linux64', 'chrome-headless-shell'),
+    join('Chromium.app', 'Contents', 'MacOS', 'Chromium'),
+  ];
+
+  const found = [];
+  let entries = [];
+  try {
+    entries = readdirSync(base);
+  } catch {
+    return [];
+  }
+  for (const entry of entries) {
+    for (const layout of layouts) {
+      const candidate = join(base, entry, layout);
+      if (existsSync(candidate)) found.push(candidate);
+    }
+  }
+  return found;
+}
+
+function freePort() {
+  return new Promise((resolve, reject) => {
+    const probe = createServer();
+    probe.on('error', reject);
+    probe.listen(0, '127.0.0.1', () => {
+      const { port } = probe.address();
+      probe.close(() => resolve(port));
+    });
+  });
+}
+
+function startServer(port) {
+  const child = spawn(process.execPath, [join(ROOT, 'server.js')], {
+    env: { ...process.env, PORT: String(port) },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  child.stderr.on('data', (data) => process.stderr.write(`[server] ${data}`));
+
+  return new Promise((resolve, reject) => {
+    const failed = setTimeout(() => reject(new Error('server did not start')), 10000);
+    child.stdout.on('data', () => {
+      clearTimeout(failed);
+      resolve(child);
+    });
+    child.on('exit', (code) => reject(new Error(`server exited with ${code}`)));
+  });
+}
+
+/** Tries each Playwright against its own browser, then the installed ones. */
+async function launch(playwrights) {
+  const executables = installedChromium();
+  const failures = [];
+
+  for (const playwright of playwrights) {
+    for (const executablePath of [undefined, ...executables]) {
+      try {
+        return await playwright.chromium.launch(
+          executablePath ? { executablePath } : {},
+        );
+      } catch (err) {
+        failures.push(`${executablePath || 'bundled'}: ${err.message.split('\n')[0]}`);
+      }
+    }
+  }
+
+  throw new Error(
+    'could not launch Chromium. Tried:\n  ' + failures.join('\n  ') +
+    '\nIf Playwright was just installed, run: npx playwright install chromium',
+  );
+}
+
+async function main() {
+  await rm(OUT, { recursive: true, force: true });
+  await mkdir(OUT, { recursive: true });
+
+  const pdfPath = join(OUT, 'fixture.pdf');
+  await writeFile(pdfPath, makePdf({ pages: FIXTURE_PAGES, title: FIXTURE_TITLE }));
+  console.log(`fixture: ${FIXTURE_PAGES}-page PDF written`);
+
+  // The pure rules first: they need no browser, and if the rules that decide
+  // what a PDF is are wrong there is no point starting Chromium.
+  await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [join(HERE, 'derive.mjs')], { stdio: 'inherit' });
+    child.on('exit', (code) => (code === 0 ? resolve() : reject(
+      new Error('the derivation rules failed; see above'))));
+  });
+
+  const playwrights = await loadPlaywrights();
+  const port = await freePort();
+  const server = await startServer(port);
+  const browser = await launch(playwrights);
+
+  const problems = [];
+
+  try {
+    const context = await browser.newContext({ acceptDownloads: true });
+    const page = await context.newPage();
+
+    // A page error means the module graph is broken; that must fail the run
+    // rather than show up as a mysterious timeout later.
+    page.on('pageerror', (err) => problems.push(`page error: ${err.message}`));
+    page.on('console', (msg) => {
+      if (msg.type() !== 'error') return;
+      // A 404 from the stub State API is the correct answer to "is there a
+      // bookmark for this learner yet", and the adapters handle it as such.
+      // The browser still logs it, so it must not be mistaken for a fault.
+      const from = msg.location()?.url || '';
+      if (/\/_lrs\/activities\/state/.test(from)) return;
+      // Browsers probe /favicon.ico on any page that declares no icon, and the
+      // generated harness scaffolding never will. Not a product signal.
+      if (/\/favicon\.ico$/.test(from)) return;
+      problems.push(`console error: ${msg.text()} (${from})`);
+    });
+
+    await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
+
+    await page.setInputFiles('#file', pdfPath);
+    await page.waitForFunction(
+      () => !document.getElementById('build').disabled,
+      null,
+      { timeout: 30000 },
+    );
+
+    const meta = await page.textContent('#filemeta');
+    console.log(`intake: ${meta.trim()}`);
+    if (!meta.includes(`${FIXTURE_PAGES} pages`)) {
+      problems.push(`page count not detected, got: ${meta.trim()}`);
+    }
+
+    // The ordinary path is meant to be a drop zone and a button, with every
+    // decision folded away behind sensible defaults. That is a claim about the
+    // page, so check it before reaching inside: if the disclosure ever ends up
+    // open by default, or a control leaks out of it, the layout has regressed
+    // even though everything still builds.
+    const folded = await page.evaluate(() => {
+      // checkVisibility(), not a bounding box: Chromium keeps the contents of a
+      // closed <details> laid out with a real height and an offsetParent, and
+      // only marks them not-rendered. Measured on Chrome 141 -- a height test
+      // here reports every folded control as on screen.
+      const onScreen = (el) => !!el && el.checkVisibility();
+      const settings = document.querySelector('details.settings');
+      return {
+        closed: !!settings && !settings.open,
+        build: onScreen(document.getElementById('build')),
+        drop: onScreen(document.getElementById('drop')),
+        leaked: ['identifier', 'language', 'mastery', 'format', 'include-schemas']
+          .filter((id) => {
+            const el = document.getElementById(id);
+            // Two ways of asking the same question: is it painted, and does it
+            // actually sit behind a folded disclosure.
+            return onScreen(el) || !el.closest('details:not([open])');
+          }),
+      };
+    });
+    if (!folded.closed) problems.push('the settings disclosure is open by default');
+    if (!folded.drop || !folded.build) {
+      problems.push('the drop zone and build button are not both visible on load');
+    }
+    if (folded.leaked.length) {
+      problems.push(`options escaped the settings disclosure: ${folded.leaked.join(', ')}`);
+    }
+    console.log('layout: drop zone and button only, settings folded away');
+
+    // From here on the test needs the options, so open the disclosure the way a
+    // person would rather than reaching past the UI. It stays open for the rest
+    // of the run.
+    await page.click('summary.settings__summary');
+
+    // SCORM 1.2 alone is the default -- one zip is what a person expects -- and
+    // that is asserted here; the rest of the run ticks the other three so the
+    // whole matrix is still built and verified.
+    const defaults = await page.evaluate(() =>
+      [...document.querySelectorAll('#standards input:checked')].map((i) => i.value));
+    if (JSON.stringify(defaults) !== JSON.stringify(['scorm12'])) {
+      problems.push(`default standards should be SCORM 1.2 only, got ${defaults.join(', ')}`);
+    }
+    for (const id of ['scorm2004', 'xapi', 'cmi5']) {
+      await page.check(`#standards input[value="${id}"]`);
+    }
+
+    const title = await page.inputValue('#title');
+    if (title !== FIXTURE_TITLE) {
+      problems.push(`title not read from PDF metadata, got: ${JSON.stringify(title)}`);
+    }
+
+    // Exercise the options that change the output shape.
+    await page.fill('#identifier', 'fixture-course');
+    await page.fill('#activity-iri', 'https://example.com/courses/fixture');
+    await page.fill('#mastery', '80');
+    await page.selectOption('#format', 'image/png');
+
+    await page.click('#build');
+    await page.waitForSelector('#results:not([hidden])', { timeout: 120000 });
+
+    const label = await page.textContent('#progress-label');
+    console.log(`build: ${label.trim()}`);
+
+    const rows = await page.locator('#results-list li').count();
+    if (rows !== STANDARDS.length) {
+      problems.push(`expected ${STANDARDS.length} packages, got ${rows}`);
+    }
+
+    for (let i = 0; i < rows; i++) {
+      const row = page.locator('#results-list li').nth(i);
+      const [download] = await Promise.all([
+        page.waitForEvent('download', { timeout: 60000 }),
+        row.locator('button.dl').click(),
+      ]);
+      const name = download.suggestedFilename();
+      await download.saveAs(join(OUT, name));
+      console.log(`saved: ${name}`);
+    }
+
+    const errorVisible = await page.locator('#error:not([hidden])').count();
+    if (errorVisible) {
+      problems.push(`UI reported an error: ${await page.textContent('#error')}`);
+    }
+
+    // The one instruction the download has to carry. Someone downloaded a
+    // package, Safari unzipped it for them, and they went looking for "the
+    // SCORM file" in a folder that cannot be imported anywhere -- with the
+    // screen offering no hint that the zip was the deliverable.
+    const hint = await page.evaluate(() => {
+      const box = document.getElementById('upload-hint');
+      if (!box) return null;
+      const bundleLine = document.getElementById('bundle-hint');
+      const bundleOffered = !document.getElementById('download-all').hidden
+        || !document.getElementById('download-formats').hidden;
+      return {
+        shown: box.checkVisibility(),
+        text: (box.textContent || '').trim(),
+        bundleLineShown: !!bundleLine && bundleLine.checkVisibility(),
+        bundleOffered,
+      };
+    });
+    if (!hint || !hint.shown) {
+      problems.push('the results panel does not tell the user to upload the zip unopened');
+    } else if (!/zip/i.test(hint.text) || !/imsmanifest/i.test(hint.text)) {
+      problems.push(`the upload hint does not name the zip and the manifest: ${hint.text}`);
+    } else {
+      console.log('  ok   says to upload the zip unopened, and what makes it SCORM');
+    }
+    // "Do not unzip" is false about a bundle -- that one holds a package per
+    // format and has to be opened -- so the extra line has to track whether a
+    // bundle is really on offer, in both directions.
+    if (hint && hint.bundleLineShown !== hint.bundleOffered) {
+      problems.push(
+        `the bundle line is ${hint.bundleLineShown ? 'shown' : 'hidden'} while a bundle `
+        + `is ${hint.bundleOffered ? 'offered' : 'not offered'}`,
+      );
+    } else if (hint) {
+      console.log(`  ok   explains the bundle only when one is offered (${hint.bundleOffered})`);
+    }
+
+    // Second pass with the schema files included. The default is off, so both
+    // paths need exercising: the conditional xsi:schemaLocation is only
+    // correct if the files it points at are actually there.
+    await mkdir(join(OUT, 'withschemas'), { recursive: true });
+    // The option lives in a folded "Advanced" section nested inside the
+    // settings, so open that too.
+    await page.click('#schemas-row > summary');
+    await page.check('#include-schemas');
+    await page.click('#build');
+    await page.waitForSelector('#results:not([hidden])', { timeout: 120000 });
+
+    const schemaRows = await page.locator('#results-list li').count();
+    for (let i = 0; i < schemaRows; i++) {
+      const row = page.locator('#results-list li').nth(i);
+      const [download] = await Promise.all([
+        page.waitForEvent('download', { timeout: 60000 }),
+        row.locator('button.dl').click(),
+      ]);
+      const name = download.suggestedFilename();
+      await download.saveAs(join(OUT, 'withschemas', name));
+    }
+    console.log(`saved: ${schemaRows} packages with schema files`);
+    await page.uncheck('#include-schemas');
+    await page.click('#schemas-row > summary');
+
+    // Third pass in Czech, so the localisation is actually exercised: the
+    // player's labels are resolved at build time and baked into the package,
+    // which means a broken table produces a silently English course.
+    await mkdir(join(OUT, 'czech'), { recursive: true });
+    await page.selectOption('#ui-language', 'cs');
+    await page.selectOption('#language', 'cs');
+
+    const buildLabel = await page.textContent('#build');
+    if (!buildLabel.includes('Vytvořit')) {
+      problems.push(`converter UI did not switch to Czech, button reads: ${buildLabel.trim()}`);
+    }
+
+    await page.click('#build');
+    await page.waitForSelector('#results:not([hidden])', { timeout: 120000 });
+
+    const czechRows = await page.locator('#results-list li').count();
+    for (let i = 0; i < czechRows; i++) {
+      const row = page.locator('#results-list li').nth(i);
+      const [download] = await Promise.all([
+        page.waitForEvent('download', { timeout: 60000 }),
+        row.locator('button.dl').click(),
+      ]);
+      await download.saveAs(join(OUT, 'czech', download.suggestedFilename()));
+    }
+    console.log(`saved: ${czechRows} packages in Czech`);
+    await page.selectOption('#ui-language', 'en');
+    await page.selectOption('#language', 'en');
+
+    if (!problems.length) {
+      // Loading the built SCOs against a mock API is the only way to catch a
+      // player that packages cleanly but never reports anything.
+      console.log('\nrun-time stage');
+      const base = `http://127.0.0.1:${port}`;
+      problems.push(...await testPlayer(page, OUT, base, FIXTURE_PAGES));
+      // xAPI and cmi5 have no API object to mock, so they are driven through
+      // the harness against the stub LRS instead.
+      problems.push(...await testStatements(page, OUT, ROOT, base, FIXTURE_PAGES));
+      // The single-file variant needs its own context: it must be opened as a
+      // real file:// document, not served.
+      problems.push(...await testSingleFile(browser, OUT, ROOT, pdfPath, FIXTURE_PAGES));
+      // And the packages themselves have to survive being unzipped and
+      // double-clicked, which is the first thing anyone does with one.
+      problems.push(...await testOffline(browser, OUT, FIXTURE_PAGES));
+      // And a learner opens it on a phone, which nothing here used to check.
+      // Runs after the offline stage because it reads the package that one
+      // unzipped.
+      problems.push(...await testMobile(browser, OUT, FIXTURE_PAGES));
+      // Finally the documents that are not the happy case: no title, a title
+      // Word invented, no text layer, a declared language, a truncated file.
+      // This reloads the page, so it goes last.
+      problems.push(...await testAwkward(page, OUT, base));
+      // Several PDFs at once, grouped into one bundle per format.
+      problems.push(...await testBulk(page, OUT, base));
+    }
+  } finally {
+    await browser.close();
+    server.kill();
+  }
+
+  if (problems.length) {
+    console.error('\nBROWSER STAGE FAILED');
+    problems.forEach((line) => console.error(`  - ${line}`));
+    process.exit(1);
+  }
+  console.log('\nbrowser stages passed; verifying package structure\n');
+
+  const verify = spawn('python3', [join(HERE, 'verify.py'), OUT, String(FIXTURE_PAGES)], {
+    stdio: 'inherit',
+  });
+  verify.on('exit', (code) => process.exit(code ?? 1));
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

@@ -1,0 +1,17 @@
+{
+  "name": "pdf-to-scorm-converter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Convert a PDF into a SCORM 1.2, SCORM 2004 4th Edition, xAPI or cmi5 e-learning package entirely in the browser.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/run.mjs",
+    "build:single": "node tools/build-single.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "playwright": "^1.47.0"
+  }
+}

@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='4' fill='%23f59e0b'/%3E%3Cpath d='M4 3h5l3 3v7H4z' fill='%23fff'/%3E%3Cpath d='M9 3v3h3z' fill='%23fde68a'/%3E%3C/svg%3E">
+<title>PDF do SCORM</title>
+<link rel="stylesheet" href="app/fonts.css">
+<link rel="stylesheet" href="app/app.css">
+</head>
+<body>
+<!-- Text carrying data-i18n is replaced at runtime from app/i18n.js. -->
+
+<header class="topbar">
+  <span class="wordmark" data-i18n="app.title">PDF do SCORM</span>
+  <label class="sr-only" for="ui-language" data-i18n="app.language">Jazyk rozhraní</label>
+  <select id="ui-language" class="lang"></select>
+</header>
+
+<main class="layout">
+
+  <!-- Everything the ordinary path needs, and nothing else. Drop a PDF, press
+       the button, take the zip your LMS wants. -->
+  <section class="hero">
+    <h1 class="hero__title" data-i18n="hero.title">Udělejte z PDF e-learningový kurz</h1>
+    <p class="hero__sub" data-i18n="hero.sub">
+      Vznikne SCORM 1.2, který bere každý LMS. Další formáty jsou v Nastavení.
+      Běží ve vašem prohlížeči, soubor se nikam neodesílá.
+    </p>
+
+    <div class="drop" id="drop" tabindex="0" role="button" aria-describedby="drop-hint">
+      <span class="drop__icon" aria-hidden="true"></span>
+      <span class="drop__lead" data-i18n="source.drop">Přetáhněte sem PDF nebo klikněte pro výběr</span>
+      <span class="drop__hint" id="drop-hint" data-i18n="source.hint">Nic neopustí váš počítač.</span>
+      <input type="file" id="file" accept="application/pdf,.pdf" multiple hidden>
+    </div>
+
+    <p class="filemeta" id="filemeta" hidden></p>
+    <!-- What the tool worked out about the PDF on its own. Filled by main.js. -->
+    <ul class="notices" id="notices" hidden></ul>
+    <!-- Several files: one row per course, each with its own title and
+         language, because one form cannot hold five of them. -->
+    <ul class="queue" id="queue" hidden></ul>
+
+    <button class="build" id="build" disabled data-i18n="build.action">Vytvořit balíčky</button>
+
+    <div class="progress" id="progress" hidden>
+      <div class="progress__bar"><div class="progress__fill" id="progress-fill"></div></div>
+      <p class="progress__label" id="progress-label" role="status"></p>
+    </div>
+
+    <p class="error" id="error" hidden role="alert"></p>
+
+    <div class="results" id="results" hidden>
+      <h2 class="results__title" data-i18n="build.results">Balíčky</h2>
+      <ul class="results__list" id="results-list"></ul>
+      <button class="ghost" id="download-all" hidden data-i18n="build.downloadAll">
+        Stáhnout vše v jednom ZIP
+      </button>
+      <!-- A batch: one bundle per format, since an LMS imports one zip per
+           course and format and a bulk upload wants them sorted by kind. -->
+      <div class="downloads" id="download-formats" hidden></div>
+      <!-- Said out loud because it actually went wrong: Safari unzips downloads
+           by default, and the unzipped folder cannot be imported anywhere. A
+           person then looks for "the SCORM file" and finds no such thing.
+           The bundle line is shown only when a bundle is on offer, because for
+           a bundle the instruction is the opposite one: that ZIP holds several
+           packages and has to be opened. -->
+      <div class="results__hint" id="upload-hint">
+        <p data-i18n="build.uploadHint">
+          Do LMS nahrajte ZIP jednoho kurzu a nerozbalujte ho: SCORM není jeden
+          soubor, je to právě ten ZIP, a dělá z něj SCORM soubor imsmanifest.xml
+          uvnitř.
+        </p>
+        <p id="bundle-hint" hidden data-i18n="build.bundleHint">
+          Sbalené stažení je jen obálka s více balíčky — tu rozbalte a do LMS
+          nahrajte jednotlivé ZIPy z ní.
+        </p>
+        <p class="results__hint-aside" data-i18n="build.unzipWarning">
+          Pokud prohlížeč rozbaluje stažené soubory sám, rozbalenou složku LMS
+          nevezme.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Folded away on purpose: with sensible defaults nobody has to open this to
+       get a working course. -->
+  <details class="settings">
+    <summary class="settings__summary">
+      <span data-i18n="settings.heading">Nastavení</span>
+      <span class="settings__note" data-i18n="settings.note">nepovinné</span>
+    </summary>
+
+    <div class="settings__body">
+
+      <div class="group">
+        <h2 class="group__title" data-i18n="course.heading">Údaje o kurzu</h2>
+        <p class="hint hint--note" id="bulk-note" hidden data-i18n="course.bulkNote"></p>
+        <div class="grid" id="course-fields">
+          <p class="field field--wide">
+            <label for="title" data-i18n="course.title">Název kurzu</label>
+            <input type="text" id="title" data-i18n-placeholder="course.titlePlaceholder">
+          </p>
+          <p class="field field--wide">
+            <label for="description">
+              <span data-i18n="course.description">Popis</span>
+              <span class="opt" data-i18n="optional">nepovinné</span>
+            </label>
+            <input type="text" id="description" data-i18n-placeholder="course.descriptionPlaceholder">
+          </p>
+          <p class="field">
+            <label for="identifier" data-i18n="course.identifier">Identifikátor</label>
+            <input type="text" id="identifier" data-i18n-placeholder="course.identifierPlaceholder">
+            <span class="hint" data-i18n="course.identifierHint"></span>
+          </p>
+          <p class="field">
+            <label for="language" data-i18n="course.language">Jazyk kurzu</label>
+            <select id="language"></select>
+            <span class="hint" data-i18n="course.languageHint"></span>
+          </p>
+          <p class="field field--wide">
+            <label for="activity-iri">
+              <span data-i18n="course.iri">Jednoznačná adresa kurzu</span>
+              <span class="opt" data-i18n="course.iriScope">jen pro xAPI a cmi5</span>
+            </label>
+            <input type="text" id="activity-iri" placeholder="https://example.com/kurzy/gdpr">
+            <span class="hint" data-i18n="course.iriHint"></span>
+          </p>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2 class="group__title" data-i18n="standards.heading">Formáty k vytvoření</h2>
+        <ul class="checks" id="standards">
+          <!-- SCORM 1.2 alone by default: it is what every LMS accepts, and one
+               zip is what a person expects to get. The rest are one tick away. -->
+          <li>
+            <label>
+              <input type="checkbox" value="scorm12" checked>
+              <span class="checks__name">SCORM 1.2</span>
+              <span class="checks__note" data-i18n="standards.scorm12note"></span>
+            </label>
+          </li>
+          <li>
+            <label>
+              <input type="checkbox" value="scorm2004">
+              <span class="checks__name">SCORM 2004 4th Edition</span>
+              <span class="checks__note" data-i18n="standards.scorm2004note"></span>
+            </label>
+          </li>
+          <li>
+            <label>
+              <input type="checkbox" value="xapi">
+              <span class="checks__name">xAPI</span>
+              <span class="checks__note" data-i18n="standards.xapinote"></span>
+            </label>
+          </li>
+          <li>
+            <label>
+              <input type="checkbox" value="cmi5">
+              <span class="checks__name">cmi5</span>
+              <span class="checks__note" data-i18n="standards.cmi5note"></span>
+            </label>
+          </li>
+        </ul>
+      </div>
+
+      <div class="group">
+        <h2 class="group__title" data-i18n="tracking.heading">Dokončení a sledování</h2>
+        <div class="grid">
+          <p class="field">
+            <label for="completion-rule" data-i18n="tracking.rule">Označit jako dokončené, když</label>
+            <select id="completion-rule">
+              <option value="all" selected data-i18n="tracking.ruleAll"></option>
+              <option value="percent" data-i18n="tracking.rulePercent"></option>
+              <option value="launch" data-i18n="tracking.ruleLaunch"></option>
+            </select>
+          </p>
+          <p class="field" id="threshold-field" hidden>
+            <label for="completion-threshold" data-i18n="tracking.threshold">Zobrazené stránky (%)</label>
+            <input type="number" id="completion-threshold" min="1" max="100" value="80">
+          </p>
+          <p class="field">
+            <label for="mastery">
+              <span data-i18n="tracking.mastery">Hranice úspěšnosti (%)</span>
+              <span class="opt" data-i18n="optional">nepovinné</span>
+            </label>
+            <input type="number" id="mastery" min="0" max="100">
+            <span class="hint" data-i18n="tracking.masteryHint"></span>
+          </p>
+          <p class="field" id="moveon-field">
+            <label for="moveon">cmi5 <code>moveOn</code></label>
+            <select id="moveon">
+              <option value="Completed" selected>Completed</option>
+              <option value="Passed">Passed</option>
+              <option value="CompletedAndPassed">CompletedAndPassed</option>
+              <option value="CompletedOrPassed">CompletedOrPassed</option>
+              <option value="NotApplicable">NotApplicable</option>
+            </select>
+          </p>
+        </div>
+        <ul class="checks checks--tight">
+          <li id="per-page-row">
+            <label>
+              <input type="checkbox" id="per-page" checked>
+              <span class="checks__name" data-i18n="tracking.perPage">Sledovat jednotlivé stránky</span>
+              <span class="checks__note" data-i18n="tracking.perPageNote"></span>
+            </label>
+          </li>
+        </ul>
+      </div>
+
+      <div class="group">
+        <h2 class="group__title" data-i18n="images.heading">Obrázky stránek</h2>
+        <div class="grid">
+          <p class="field">
+            <label for="dpi" data-i18n="images.dpi">Rozlišení (DPI)</label>
+            <select id="dpi">
+              <option value="96" data-i18n="images.dpi96"></option>
+              <option value="150" selected data-i18n="images.dpi150"></option>
+              <option value="200" data-i18n="images.dpi200"></option>
+              <option value="300" data-i18n="images.dpi300"></option>
+            </select>
+          </p>
+          <p class="field">
+            <label for="format" data-i18n="images.format">Formát obrázků</label>
+            <select id="format">
+              <option value="image/webp" selected data-i18n="images.formatWebp"></option>
+              <option value="image/jpeg" data-i18n="images.formatJpeg"></option>
+              <option value="image/png" data-i18n="images.formatPng"></option>
+            </select>
+          </p>
+          <p class="field">
+            <label for="quality" data-i18n="images.quality">Kvalita</label>
+            <input type="range" id="quality" min="50" max="100" value="85" step="5">
+            <span class="hint"><output id="quality-out">85</output><span
+              data-i18n="images.qualityHint"></span></span>
+          </p>
+        </div>
+        <ul class="checks checks--tight">
+          <li>
+            <label>
+              <input type="checkbox" id="extract-text" checked>
+              <span class="checks__name" data-i18n="images.text">Přiložit text stránek pro čtečky obrazovky</span>
+              <span class="checks__note" data-i18n="images.textNote"></span>
+            </label>
+          </li>
+        </ul>
+
+        <details class="advanced" id="schemas-row">
+          <summary data-i18n="images.advanced">Pokročilé</summary>
+          <ul class="checks checks--tight">
+            <li>
+              <label>
+                <input type="checkbox" id="include-schemas">
+                <span class="checks__name" data-i18n="images.schemas">Přiložit soubory se schématy</span>
+                <span class="checks__note" data-i18n="images.schemasNote"></span>
+              </label>
+            </li>
+          </ul>
+        </details>
+      </div>
+
+    </div>
+  </details>
+
+  <section class="group group--preview" id="preview-card" hidden>
+    <h2 class="group__title" data-i18n="build.preview">Vykreslené stránky</h2>
+    <div class="preview" id="preview"></div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <p data-i18n="footer"></p>
+</footer>
+
+<script src="vendor/jszip.min.js"></script>
+<script type="module" src="app/main.js"></script>
+</body>
+</html>
