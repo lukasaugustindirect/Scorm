@@ -10,7 +10,9 @@
 import { renderPdf, peek } from './pdf-render.js';
 import { buildPackage, bundle } from './package-builder.js';
 import { LANGUAGES, uiStrings, fill } from './i18n.js';
-import { courseLanguage, courseTitle, failureKey } from './derive.js';
+import {
+  courseLanguage, courseTitle, failureKey, rejectionKey, sourceKind,
+} from './derive.js';
 import { id as safeId } from './standards/xml.js';
 import { BY_ID } from './standards/index.js';
 
@@ -222,14 +224,21 @@ ui.file.addEventListener('change', () => {
  */
 async function accept(fileList) {
   const files = Array.from(fileList || []);
-  const pdfs = files.filter(
-    (file) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name),
-  );
+  const pdfs = files.filter((file) => sourceKind(file.name, file.type) === 'pdf');
   const skipped = files.filter((file) => !pdfs.includes(file));
 
   clearError();
   if (skipped.length) {
-    fail(t('source.notPdf', { name: skipped.map((f) => f.name).join(', ') }));
+    // A deck is the common mistake, and it deserves the three clicks that fix
+    // it rather than "not a PDF". Grouped by kind so a mixed drop gets one
+    // sentence per kind instead of one per file.
+    const byKind = new Map();
+    for (const file of skipped) {
+      const key = rejectionKey(sourceKind(file.name, file.type));
+      if (!byKind.has(key)) byKind.set(key, []);
+      byKind.get(key).push(file.name);
+    }
+    fail([...byKind].map(([key, names]) => t(key, { name: names.join(', ') })).join(' '));
   }
   if (!pdfs.length) return;
 

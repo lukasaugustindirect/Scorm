@@ -31,8 +31,13 @@
     <div class="drop" id="drop" tabindex="0" role="button" aria-describedby="drop-hint">
       <span class="drop__icon" aria-hidden="true"></span>
       <span class="drop__lead" data-i18n="source.drop">Přetáhněte sem PDF nebo klikněte pro výběr</span>
-      <span class="drop__hint" id="drop-hint" data-i18n="source.hint">Nic neopustí váš počítač.</span>
-      <input type="file" id="file" accept="application/pdf,.pdf" multiple hidden>
+      <span class="drop__hint" id="drop-hint" data-i18n="source.hint">Nic neopustí váš počítač. Máte PowerPoint? Uložte ho nejdřív jako PDF.</span>
+      <!-- Presentations are listed so the picker lets one be chosen: the tool
+           cannot convert a deck, but it can say what to do about it, and a file
+           greyed out in the dialog explains nothing. -->
+      <input type="file" id="file"
+             accept="application/pdf,.pdf,.ppt,.pptx,.pot,.potx,.pps,.ppsx,.odp,.key"
+             multiple hidden>
     </div>
 
     <p class="filemeta" id="filemeta" hidden></p>

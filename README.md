@@ -44,6 +44,34 @@ them.
 The served version below uses the modern pdf.js and is what you want on an
 internal web server, where it is just a URL for everyone.
 
+## PowerPoint, Keynote, Google Slides
+
+Save the deck as a PDF first, then convert that. In PowerPoint it is
+**File → Save As** (or **Export**) **→ PDF**; Keynote and Google Slides have the
+same under File. The converter recognises a `.pptx`, `.ppt`, `.odp` or `.key`
+and says exactly that instead of refusing it as "not a PDF".
+
+Rendering PPTX directly was considered and rejected, which is worth recording
+because it looks like an obvious feature:
+
+- Faithful DrawingML needs the engine that drew the slides. The browser
+  libraries that attempt it are approximate **by their own documentation** —
+  they say to use PowerPoint or headless LibreOffice when output has to be
+  right.
+- The parts that break are exactly the parts a corporate deck is made of: a
+  licensed font that is not installed on the converting machine, SmartArt,
+  charts, and graphics pasted in from Excel or Word as EMF.
+- **A slide that renders wrong is silent.** Nothing errors; the course simply
+  carries a mangled page, and the first person to find out is a learner. A
+  refusal that explains itself is a better failure than a quiet lie.
+- LibreOffice compiled to WebAssembly would be faithful and costs a ~250 MB
+  download. This converter is 2 MB and its whole point is that it fits in an
+  email.
+
+Exporting from the application that drew the slides is faithful, free and takes
+about ten seconds — fonts are embedded into the PDF automatically, so the pages
+come out looking exactly like the deck.
+
 ## Running it as a site
 
 pdf.js parses in a Web Worker, and browsers refuse to start a *module* worker
@@ -433,8 +461,8 @@ A real end-to-end run, not unit tests around mocks. It:
    holds exactly one correctly named package per course with the edited title
    and each document's own language.
 
-Current state: **581 assertions, all passing** (85 rule checks in plain
-Node, 172 run-time in the browser, 324 structural).
+Current state: **609 assertions, all passing** (107 rule checks in plain
+Node, 178 run-time in the browser, 324 structural).
 
 Step 6 needs `xmllint`; without it the schema checks are skipped loudly rather
 than passing quietly. Everything else needs only Node and, for the build, the

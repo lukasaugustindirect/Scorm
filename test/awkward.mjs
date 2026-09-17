@@ -194,5 +194,91 @@ export async function testAwkward(page, outDir, base) {
     }
   }
 
+  problems.push(...await testPresentationDropped(page, dir, base));
+  return problems;
+}
+
+/**
+ * Someone hands the converter a PowerPoint.
+ *
+ * This is the commonest wrong file by a distance -- the source material for
+ * these courses is nearly always a deck, and nobody holding a .pptx has any
+ * reason to know the tool wants a PDF. It used to answer "does not look like a
+ * PDF", which is true and leaves the person exactly where they started.
+ *
+ * The converter does not render PPTX and is not going to: faithful DrawingML
+ * needs the Office engine, and a deck that renders almost-right is worse than
+ * one that is refused, because nothing says it went wrong. So the whole feature
+ * is the sentence, and the sentence is what gets tested -- including that a PDF
+ * dropped alongside still goes through.
+ */
+async function testPresentationDropped(page, dir, base) {
+  const problems = [];
+  const expect = (ok, label, detail) => {
+    if (ok) {
+      console.log(`    ok   a PowerPoint instead of a PDF: ${label}`);
+    } else {
+      console.log(`    FAIL a PowerPoint instead of a PDF: ${label}${detail ? ` -- ${detail}` : ''}`);
+      problems.push(`awkward: a PowerPoint instead of a PDF: ${label}`);
+    }
+  };
+
+  // Never opened -- the tool decides on the name and the type the browser
+  // reports, which is exactly what a real drag from Explorer or Finder gives.
+  const deck = join(dir, 'Skoleni BOZP 2026.pptx');
+  await writeFile(deck, Buffer.from('PK\u0003\u0004 not a real deck, and never opened'));
+  const pdf = join(dir, 'Prilohy.pdf');
+  await writeFile(pdf, makePdf({ pages: 2, title: 'Prilohy' }));
+
+  await page.goto(`${base}/`, { waitUntil: 'load' });
+  await page.selectOption('#ui-language', 'cs');
+  await page.setInputFiles('#file', [deck]);
+  await page.waitForFunction(
+    () => !document.getElementById('error').hidden,
+    null,
+    { timeout: 15000 },
+  ).catch(() => { /* reported below */ });
+
+  const alone = await page.evaluate(() => ({
+    message: (document.getElementById('error').textContent || '').trim(),
+    queued: document.querySelectorAll('#queue .queue__row').length,
+    buildDisabled: document.getElementById('build').disabled,
+  }));
+
+  expect(/prezentace/i.test(alone.message), 'says it is a presentation, not just "not a PDF"',
+         alone.message);
+  expect(/PDF/.test(alone.message) && /Uložit jako|Exportovat/i.test(alone.message),
+         'and names the menu that produces one', alone.message);
+  expect(/Skoleni BOZP 2026\.pptx/.test(alone.message), 'names the file it is talking about',
+         alone.message);
+  expect(alone.queued === 0 && alone.buildDisabled,
+         'queues nothing and leaves the button off', `${alone.queued} queued`);
+
+  // The realistic drop: a folder holding both. The deck must be explained and
+  // the PDF must still be converted -- rejecting the batch would be worse than
+  // the old message.
+  await page.goto(`${base}/`, { waitUntil: 'load' });
+  await page.selectOption('#ui-language', 'cs');
+  await page.setInputFiles('#file', [pdf, deck]);
+  // The build button, not the file line: #filemeta appears the moment reading
+  // starts ("reading…"), so waiting on it samples before the PDF is parsed --
+  // which is what made this read as a broken mixed drop when the app was fine.
+  await page.waitForFunction(
+    () => !document.getElementById('build').disabled,
+    null,
+    { timeout: 60000 },
+  ).catch(() => { /* reported below */ });
+
+  const mixed = await page.evaluate(() => ({
+    message: (document.getElementById('error').textContent || '').trim(),
+    title: document.getElementById('title').value,
+    buildDisabled: document.getElementById('build').disabled,
+  }));
+  expect(/prezentace/i.test(mixed.message), 'a mixed drop still explains the deck',
+         mixed.message);
+  expect(mixed.title === 'Prilohy' && !mixed.buildDisabled,
+         'and converts the PDF that came with it',
+         `${JSON.stringify(mixed.title)}, button ${mixed.buildDisabled ? 'off' : 'on'}`);
+
   return problems;
 }

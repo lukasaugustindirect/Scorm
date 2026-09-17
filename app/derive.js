@@ -391,3 +391,54 @@ export function failureKey(err) {
   if (/invalid pdf|no pdf header|structure/i.test(message)) return 'source.corrupt';
   return null;
 }
+
+/* Extensions worth naming when a file is not a PDF.
+ *
+ * A presentation is the case that actually happens: the source material for
+ * this tool is nearly always a deck, and the person holding the .pptx has no
+ * reason to know the converter wants a PDF. Telling them "not a PDF" is true
+ * and useless -- what they need is the three clicks that produce one.
+ *
+ * Rendering PPTX here was considered and rejected. Faithful DrawingML needs
+ * the Office engine or LibreOffice; the browser libraries that try are
+ * approximate by their own documentation, and a corporate deck is exactly
+ * where they slip -- a licensed font that is not installed, SmartArt, charts,
+ * pasted EMF. A slide that renders wrong is silent: nothing errors, the course
+ * just carries a mangled page. Exporting from the application that drew the
+ * slides is both faithful and free.
+ */
+const PRESENTATION = /\.(pptx?|potx?|ppsx?|odp|key)$/i;
+const TEXT_DOCUMENT = /\.(docx?|dotx?|odt|pages|rtf|txt|md)$/i;
+const SPREADSHEET = /\.(xlsx?|xlsm|ods|csv|numbers)$/i;
+const IMAGE = /\.(jpe?g|png|gif|webp|heic|heif|tiff?|bmp|svg)$/i;
+
+/**
+ * What someone handed over, when it was not a PDF.
+ *
+ * Decided on the file name rather than the reported MIME type: a drag from a
+ * network share or an older Windows build often reports an empty type or
+ * application/octet-stream, and the extension is what the person sees anyway.
+ * The type is consulted only as a second opinion.
+ *
+ * @returns {'pdf'|'presentation'|'document'|'spreadsheet'|'image'|'other'}
+ */
+export function sourceKind(filename, mimeType) {
+  const name = String(filename || '');
+  const type = String(mimeType || '').toLowerCase();
+  if (type === 'application/pdf' || /\.pdf$/i.test(name)) return 'pdf';
+  if (PRESENTATION.test(name) || type.includes('presentation')) return 'presentation';
+  if (TEXT_DOCUMENT.test(name) || type.includes('wordprocessing')) return 'document';
+  if (SPREADSHEET.test(name) || type.includes('spreadsheet')) return 'spreadsheet';
+  if (IMAGE.test(name) || type.startsWith('image/')) return 'image';
+  return 'other';
+}
+
+/** The message key that says what to do about a file that is not a PDF. */
+export function rejectionKey(kind) {
+  switch (kind) {
+    case 'presentation': return 'source.notPdfPresentation';
+    case 'document': return 'source.notPdfDocument';
+    case 'spreadsheet': return 'source.notPdfDocument';
+    default: return 'source.notPdf';
+  }
+}

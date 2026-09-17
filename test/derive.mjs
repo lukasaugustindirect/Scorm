@@ -10,7 +10,8 @@
 
 import {
   cleanMetaTitle, courseLanguage, courseTitle, failureKey, hasTextLayer,
-  headingFromRuns, isUsableHeading, isUsableTitle, samplePages, titleFromFilename,
+  headingFromRuns, isUsableHeading, isUsableTitle, rejectionKey, samplePages,
+  sourceKind, titleFromFilename,
 } from '../app/derive.js';
 
 let checks = 0;
@@ -203,6 +204,37 @@ eq(failureKey({ message: 'Invalid PDF structure.' }), 'source.corrupt',
 eq(failureKey({ name: 'Error', message: 'worker died' }), null,
    'anything else keeps its own message');
 eq(failureKey(null), null, 'and nothing thrown at all does not throw here');
+
+console.log('\nwhat someone handed over, when it was not a PDF');
+eq(sourceKind('skoleni.pdf'), 'pdf', 'a PDF is a PDF');
+eq(sourceKind('anything', 'application/pdf'), 'pdf', 'and so is one with no extension but the right type');
+eq(sourceKind('Skoleni BOZP 2026.pptx'), 'presentation', 'the case that actually happens');
+eq(sourceKind('stary_format.ppt'), 'presentation', 'including the old binary format');
+eq(sourceKind('sablona.potx'), 'presentation', 'and a template');
+eq(sourceKind('promitani.ppsx'), 'presentation', 'and a slideshow');
+eq(sourceKind('prezentace.odp'), 'presentation', 'LibreOffice counts too');
+eq(sourceKind('deck.key'), 'presentation', 'so does Keynote');
+// Windows and network shares often report nothing useful, so the extension has
+// to be enough on its own -- and when it is not, the type gets a say.
+eq(sourceKind('deck.pptx', ''), 'presentation', 'an empty MIME type changes nothing');
+eq(sourceKind('deck.pptx', 'application/octet-stream'), 'presentation',
+   'nor does the catch-all type a network drive reports');
+eq(sourceKind('nazev-bez-pripony',
+   'application/vnd.openxmlformats-officedocument.presentationml.presentation'),
+   'presentation', 'and with no extension the type carries it');
+eq(sourceKind('smlouva.docx'), 'document', 'a Word file is a document');
+eq(sourceKind('tabulka.xlsx'), 'spreadsheet', 'a spreadsheet is its own thing');
+eq(sourceKind('sken.jpg'), 'image', 'an image is an image');
+eq(sourceKind('archiv.zip'), 'other', 'and everything else is other');
+eq(sourceKind(''), 'other', 'no name, no claim');
+eq(sourceKind('PREZENTACE.PPTX'), 'presentation', 'upper case is the same file');
+
+eq(rejectionKey('presentation'), 'source.notPdfPresentation',
+   'a deck gets the message with the export path in it');
+eq(rejectionKey('document'), 'source.notPdfDocument', 'so does a document');
+eq(rejectionKey('spreadsheet'), 'source.notPdfDocument', 'a spreadsheet shares it');
+eq(rejectionKey('image'), 'source.notPdf', 'anything else keeps the plain message');
+eq(rejectionKey('other'), 'source.notPdf', 'including the unknown');
 
 console.log(`\n${checks - failures.length}/${checks} checks passed`);
 if (failures.length) {

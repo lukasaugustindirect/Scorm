@@ -87,11 +87,17 @@ export const UI_STRINGS = {
     'settings.note': 'optional',
     'course.fallbackTitle': 'Course',
     'source.drop': 'Drop PDFs here, or click to browse — one or many',
-    'source.hint': 'Nothing leaves your computer.',
+    'source.hint': 'Nothing leaves your computer. PowerPoint? Save it as PDF first.',
     'source.reading': 'reading…',
     'source.page': 'page',
     'source.pages': 'pages',
     'source.notPdf': '{name} does not look like a PDF.',
+    'source.notPdfPresentation': '{name} is a presentation, not a PDF. Open it and ' +
+      'save it as PDF — in PowerPoint that is File → Save As (or Export) → PDF, and ' +
+      'Keynote and Google Slides have the same under File. Add that PDF here. The ' +
+      'slides then look exactly as they do in the presentation, licensed fonts and all.',
+    'source.notPdfDocument': '{name} is a document, not a PDF. Open it and save it ' +
+      'as PDF (File → Save As → PDF), then add that PDF here.',
     'source.locked': 'This PDF is password-protected, so it cannot be read. ' +
       'Save a copy without the password and try that one.',
     'source.corrupt': 'This PDF is damaged and cannot be read. ' +
@@ -218,11 +224,17 @@ export const UI_STRINGS = {
     'settings.note': 'nepovinné',
     'course.fallbackTitle': 'Kurz',
     'source.drop': 'Přetáhněte sem PDF — jedno nebo víc — nebo klikněte pro výběr',
-    'source.hint': 'Nic neopustí váš počítač.',
+    'source.hint': 'Nic neopustí váš počítač. Máte PowerPoint? Uložte ho nejdřív jako PDF.',
     'source.reading': 'čtení…',
     'source.page': 'stránka',
     'source.pages': 'stránek',
     'source.notPdf': 'Soubor {name} nevypadá jako PDF.',
+    'source.notPdfPresentation': 'Soubor {name} je prezentace, ne PDF. Otevřete ji a ' +
+      'uložte jako PDF — v PowerPointu je to Soubor → Uložit jako (nebo Exportovat) → ' +
+      'PDF, v Keynote i Google Slides totéž pod Soubor. Pak sem vložte to PDF. Slidy ' +
+      'budou vypadat přesně jako v prezentaci, včetně firemních fontů.',
+    'source.notPdfDocument': 'Soubor {name} je dokument, ne PDF. Otevřete ho a uložte ' +
+      'jako PDF (Soubor → Uložit jako → PDF), pak sem vložte to PDF.',
     'source.locked': 'Toto PDF je chráněné heslem, takže se nedá přečíst. ' +
       'Uložte si kopii bez hesla a zkuste tu.',
     'source.corrupt': 'Toto PDF je poškozené a nedá se přečíst. ' +

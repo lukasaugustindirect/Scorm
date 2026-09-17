@@ -839,8 +839,11 @@ input[type="range"]::-moz-range-thumb {
     <div class="drop" id="drop" tabindex="0" role="button" aria-describedby="drop-hint">
       <span class="drop__icon" aria-hidden="true"></span>
       <span class="drop__lead" data-i18n="source.drop">Přetáhněte sem PDF nebo klikněte pro výběr</span>
-      <span class="drop__hint" id="drop-hint" data-i18n="source.hint">Nic neopustí váš počítač.</span>
-      <input type="file" id="file" accept="application/pdf,.pdf" multiple hidden>
+      <span class="drop__hint" id="drop-hint" data-i18n="source.hint">Nic neopustí váš počítač. Máte PowerPoint? Uložte ho nejdřív jako PDF.</span>
+      
+      <input type="file" id="file"
+             accept="application/pdf,.pdf,.ppt,.pptx,.pot,.potx,.pps,.ppsx,.odp,.key"
+             multiple hidden>
     </div>
 
     <p class="filemeta" id="filemeta" hidden></p>
@@ -1340,6 +1343,32 @@ window.__EMBEDDED_ASSETS = {"player/index.html":"\u003c!doctype html\u003e\n\u00
     if (/invalid pdf|no pdf header|structure/i.test(message)) return "source.corrupt";
     return null;
   }
+  var PRESENTATION = /\.(pptx?|potx?|ppsx?|odp|key)$/i;
+  var TEXT_DOCUMENT = /\.(docx?|dotx?|odt|pages|rtf|txt|md)$/i;
+  var SPREADSHEET = /\.(xlsx?|xlsm|ods|csv|numbers)$/i;
+  var IMAGE = /\.(jpe?g|png|gif|webp|heic|heif|tiff?|bmp|svg)$/i;
+  function sourceKind(filename, mimeType) {
+    const name = String(filename || "");
+    const type = String(mimeType || "").toLowerCase();
+    if (type === "application/pdf" || /\.pdf$/i.test(name)) return "pdf";
+    if (PRESENTATION.test(name) || type.includes("presentation")) return "presentation";
+    if (TEXT_DOCUMENT.test(name) || type.includes("wordprocessing")) return "document";
+    if (SPREADSHEET.test(name) || type.includes("spreadsheet")) return "spreadsheet";
+    if (IMAGE.test(name) || type.startsWith("image/")) return "image";
+    return "other";
+  }
+  function rejectionKey(kind) {
+    switch (kind) {
+      case "presentation":
+        return "source.notPdfPresentation";
+      case "document":
+        return "source.notPdfDocument";
+      case "spreadsheet":
+        return "source.notPdfDocument";
+      default:
+        return "source.notPdf";
+    }
+  }
 
   // app/pdf-render.js
   var OVERRIDES = typeof window !== "undefined" && window.__PDF_OVERRIDES || {};
@@ -1823,11 +1852,13 @@ ${fileList}
       "settings.note": "optional",
       "course.fallbackTitle": "Course",
       "source.drop": "Drop PDFs here, or click to browse \u2014 one or many",
-      "source.hint": "Nothing leaves your computer.",
+      "source.hint": "Nothing leaves your computer. PowerPoint? Save it as PDF first.",
       "source.reading": "reading\u2026",
       "source.page": "page",
       "source.pages": "pages",
       "source.notPdf": "{name} does not look like a PDF.",
+      "source.notPdfPresentation": "{name} is a presentation, not a PDF. Open it and save it as PDF \u2014 in PowerPoint that is File \u2192 Save As (or Export) \u2192 PDF, and Keynote and Google Slides have the same under File. Add that PDF here. The slides then look exactly as they do in the presentation, licensed fonts and all.",
+      "source.notPdfDocument": "{name} is a document, not a PDF. Open it and save it as PDF (File \u2192 Save As \u2192 PDF), then add that PDF here.",
       "source.locked": "This PDF is password-protected, so it cannot be read. Save a copy without the password and try that one.",
       "source.corrupt": "This PDF is damaged and cannot be read. Try opening it in a PDF reader and saving a fresh copy.",
       "source.openFailed": "This PDF could not be opened: {message}",
@@ -1922,11 +1953,13 @@ ${fileList}
       "settings.note": "nepovinn\xE9",
       "course.fallbackTitle": "Kurz",
       "source.drop": "P\u0159et\xE1hn\u011Bte sem PDF \u2014 jedno nebo v\xEDc \u2014 nebo klikn\u011Bte pro v\xFDb\u011Br",
-      "source.hint": "Nic neopust\xED v\xE1\u0161 po\u010D\xEDta\u010D.",
+      "source.hint": "Nic neopust\xED v\xE1\u0161 po\u010D\xEDta\u010D. M\xE1te PowerPoint? Ulo\u017Ete ho nejd\u0159\xEDv jako PDF.",
       "source.reading": "\u010Dten\xED\u2026",
       "source.page": "str\xE1nka",
       "source.pages": "str\xE1nek",
       "source.notPdf": "Soubor {name} nevypad\xE1 jako PDF.",
+      "source.notPdfPresentation": "Soubor {name} je prezentace, ne PDF. Otev\u0159ete ji a ulo\u017Ete jako PDF \u2014 v PowerPointu je to Soubor \u2192 Ulo\u017Eit jako (nebo Exportovat) \u2192 PDF, v Keynote i Google Slides tot\xE9\u017E pod Soubor. Pak sem vlo\u017Ete to PDF. Slidy budou vypadat p\u0159esn\u011B jako v prezentaci, v\u010Detn\u011B firemn\xEDch font\u016F.",
+      "source.notPdfDocument": "Soubor {name} je dokument, ne PDF. Otev\u0159ete ho a ulo\u017Ete jako PDF (Soubor \u2192 Ulo\u017Eit jako \u2192 PDF), pak sem vlo\u017Ete to PDF.",
       "source.locked": "Toto PDF je chr\xE1n\u011Bn\xE9 heslem, tak\u017Ee se ned\xE1 p\u0159e\u010D\xEDst. Ulo\u017Ete si kopii bez hesla a zkuste tu.",
       "source.corrupt": "Toto PDF je po\u0161kozen\xE9 a ned\xE1 se p\u0159e\u010D\xEDst. Zkuste ho otev\u0159\xEDt v prohl\xED\u017Ee\u010Di PDF a ulo\u017Eit znovu.",
       "source.openFailed": "Toto PDF se nepoda\u0159ilo otev\u0159\xEDt: {message}",
@@ -2316,13 +2349,17 @@ ${fileList}
   });
   async function accept(fileList) {
     const files = Array.from(fileList || []);
-    const pdfs = files.filter(
-      (file) => file.type === "application/pdf" || /\.pdf$/i.test(file.name)
-    );
+    const pdfs = files.filter((file) => sourceKind(file.name, file.type) === "pdf");
     const skipped = files.filter((file) => !pdfs.includes(file));
     clearError();
     if (skipped.length) {
-      fail(t("source.notPdf", { name: skipped.map((f) => f.name).join(", ") }));
+      const byKind = /* @__PURE__ */ new Map();
+      for (const file of skipped) {
+        const key = rejectionKey(sourceKind(file.name, file.type));
+        if (!byKind.has(key)) byKind.set(key, []);
+        byKind.get(key).push(file.name);
+      }
+      fail([...byKind].map(([key, names]) => t(key, { name: names.join(", ") })).join(" "));
     }
     if (!pdfs.length) return;
     releaseUrls();
