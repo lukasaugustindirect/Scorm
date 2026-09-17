@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='4' fill='%23f59e0b'/%3E%3Cpath d='M4 3h5l3 3v7H4z' fill='%23fff'/%3E%3Cpath d='M9 3v3h3z' fill='%23fde68a'/%3E%3C/svg%3E">
+<title>Course</title>
+<link rel="stylesheet" href="player.css">
+</head>
+<body>
+<!-- Visible text is filled in by player.js from the strings the build step
+     resolved for the course language, so there is nothing to translate here. -->
+<div class="viewer" id="viewer">
+
+  <header class="bar bar--top">
+    <button class="icon-btn" id="toggle-thumbs" aria-expanded="false" aria-controls="thumbs">
+      <span class="icon-bars" aria-hidden="true"></span>
+      <span class="sr-only" id="toggle-thumbs-label"></span>
+    </button>
+
+    <h1 class="course-title" id="course-title"></h1>
+
+    <div class="bar__right">
+      <span class="status" id="lms-status" role="status"></span>
+      <button class="nav-btn nav-btn--return" id="return-lms" hidden></button>
+      <button class="icon-btn" id="zoom-mode">
+        <span aria-hidden="true">⤢</span><span class="sr-only" id="zoom-mode-label"></span>
+      </button>
+      <button class="icon-btn" id="fullscreen">
+        <span aria-hidden="true">⛶</span><span class="sr-only" id="fullscreen-label"></span>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+    <nav class="thumbs" id="thumbs" hidden></nav>
+
+    <main class="stage" id="stage" tabindex="0">
+      <figure class="page" id="page-figure">
+        <img class="page__img" id="page-img" alt="">
+        <figcaption class="sr-only" id="page-text"></figcaption>
+      </figure>
+      <p class="loading" id="loading"></p>
+    </main>
+  </div>
+
+  <footer class="bar bar--bottom">
+    <button class="nav-btn" id="prev">
+      <span aria-hidden="true">‹</span> <span id="prev-label"></span>
+    </button>
+
+    <div class="progress-group">
+      <label class="sr-only" for="page-input" id="page-input-label"></label>
+      <input class="page-input" id="page-input" type="number" min="1" value="1" inputmode="numeric">
+      <span class="page-count">/ <span id="page-total">?</span></span>
+      <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+           aria-valuenow="0" id="progress">
+        <div class="progress__fill" id="progress-fill"></div>
+      </div>
+      <span class="progress-label" id="progress-label"></span>
+    </div>
+
+    <button class="nav-btn" id="next">
+      <span id="next-label"></span> <span aria-hidden="true">›</span>
+    </button>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</div>
+
+<!-- The course manifest, written in by the build step.
+     It is also shipped as content/pages.json, which the player falls back to,
+     but it has to be HERE as well: a package opened by double-click runs from
+     file://, where a page cannot fetch its own siblings, so the fetch fails and
+     the course never loads. Page images are <img src> and work either way. -->
+<script type="application/json" id="course-data">{}</script>
+
+<!-- The adapter is chosen when the package is built; it defines window.PdfScormAdapter. -->
+<script src="lms-adapter.js"></script>
+<script src="player.js"></script>
+</body>
+</html>
